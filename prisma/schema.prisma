@@ -1,0 +1,678 @@
+// MestreXadrez — modelo de dados completo.
+// Fonte da verdade do modelo relacional. Ver docs/02-modelo-de-dados.md para as decisões.
+//
+// REGRA ARQUITETURAL (ADR-004): não existe relação entre XPEvent e SkillMastery.
+// Atividade e competência são sistemas separados por construção.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────── IDENTIDADE
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  displayName   String
+  locale        String    @default("pt-BR")
+  isMinor       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile       Profile?
+  goals         Goal[]
+  masteries     SkillMastery[]
+  attempts      ExerciseAttempt[]
+  reviews       ReviewSchedule[]
+  scoreSnapshots ChessScoreSnapshot[]
+  diagnostics   DiagnosticResult[]
+  streak        Streak?
+  focus         FocusState?
+  xpEvents      XPEvent[]
+  wallet        Wallet?
+  achievements  Achievement[]
+  quests        Quest[]
+  leagueEntries LeagueEntry[]
+  friendsA      Friendship[]      @relation("friendA")
+  friendsB      Friendship[]      @relation("friendB")
+  clubMembers   ClubMember[]
+  games         Game[]
+  importedPGNs  ImportedPGN[]
+  repertoires   Repertoire[]
+  tournamentResults TournamentResult[]
+  coach         Coach?
+  studentLinks  CoachStudent[]    @relation("student")
+  assignments   Assignment[]
+  subscription  Subscription?
+  notifications Notification[]
+  authoredExercises Exercise[]    @relation("exerciseAuthor")
+  contentReviews ContentReview[]
+  analyticsEvents AnalyticsEvent[]
+}
+
+model Profile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experienceLevel   String   // NUNCA_JOGUEI | REGRAS | CASUAL | CLUBE | TORNEIO
+  onlineRatingBlitz Int?
+  onlineRatingRapid Int?
+  officialRating    Int?     // FIDE / CBX
+  officialTitle     String?  // CM FM IM GM WCM WFM WIM WGM
+  platforms         String[]
+  playsTournaments  Boolean  @default(false)
+  weeklyMinutes     Int      @default(105)
+  preferredSide     String?  // BRANCAS | PRETAS | AMBAS
+  showRankings      Boolean  @default(true)
+  soundEnabled      Boolean  @default(true)
+  boardOrientation  String   @default("WHITE")
+  showCoordinates   Boolean  @default(true)
+  highContrast      Boolean  @default(false)
+  reducedMotion     Boolean  @default(false)
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind        String   // APRENDER_REGRAS | SUBIR_RATING | TORNEIO | TITULO
+  targetValue Int?
+  targetDate  DateTime?
+  createdAt   DateTime @default(now())
+  achievedAt  DateTime?
+}
+
+// ─────────────────────────────────────────────────────────── CURRÍCULO
+
+model Course {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  title     String
+  locale    String  @default("pt-BR")
+  worlds    World[]
+}
+
+/// World = Liga (Recruta, Estrategista, ...).
+model World {
+  id           String @id @default(cuid())
+  courseId     String
+  course       Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  slug         String @unique
+  title        String
+  order        Int
+  ratingMin    Int
+  ratingMax    Int
+  focusSummary String
+  units        Unit[]
+}
+
+model Unit {
+  id          String  @id @default(cuid())
+  worldId     String
+  world       World   @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  slug        String  @unique
+  title       String
+  order       Int
+  summary     String
+  masteryTest String  // descrição do critério da prova de domínio
+  skills      Skill[]
+  lessons     Lesson[]
+}
+
+model Skill {
+  id            String @id @default(cuid())
+  unitId        String
+  unit          Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  slug          String @unique
+  title         String
+  /// Eixo do Chess Score: RULES TACTICS CALCULATION STRATEGY ENDGAME OPENING ANALYSIS PRACTICAL
+  competency    String
+  description   String
+  order         Int
+
+  dependsOn     SkillDependency[] @relation("dependent")
+  requiredBy    SkillDependency[] @relation("prerequisite")
+  masteries     SkillMastery[]
+  exercises     ExerciseSkill[]
+  criticalMoments CriticalMoment[]
+}
+
+/// Grafo de dependências: o mapa desbloqueia por pré-requisito satisfeito, não por ordem linear.
+model SkillDependency {
+  id             String @id @default(cuid())
+  skillId        String
+  skill          Skill  @relation("dependent", fields: [skillId], references: [id], onDelete: Cascade)
+  prerequisiteId String
+  prerequisite   Skill  @relation("prerequisite", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+  minMastery     Int    @default(60)
+
+  @@unique([skillId, prerequisiteId])
+}
+
+model Lesson {
+  id        String @id @default(cuid())
+  unitId    String
+  unit      Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  slug      String @unique
+  title     String
+  order     Int
+  /// Fase 1 e 2 da lição.
+  conceptMd String
+  demoFen   String?
+  demoPgn   String?
+  exercises Exercise[]
+}
+
+// ─────────────────────────────────────────────────────────── EXERCÍCIOS
+
+model Exercise {
+  id                String   @id @default(cuid())
+  lessonId          String?
+  lesson            Lesson?  @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  slug              String   @unique
+  /// GUIDED | INDEPENDENT | MASTERY_TEST | REVIEW
+  phase             String
+  /// Ver src/content/schema.ts para a lista de tipos modulares.
+  type              String
+  prompt            String
+  fen               String
+  pgn               String?
+  sideToMove        String   // w | b
+  difficulty        Int      // 1..10
+  ratingHint        Int
+  acceptedAnswers   Json     // formato depende do tipo
+  predictableErrors Json     // [{ answer, cause, explanation }]
+  explanation       String
+  hint1             String
+  hint2             String
+  hint3             String
+  tags              String[]
+  expectedSeconds   Int
+  points            Int
+  reviewState       String   @default("DRAFT") // DRAFT CHESS_REVIEW PEDAGOGY_REVIEW AUTO_TEST PUBLISHED MONITORING
+  authorId          String?
+  author            User?    @relation("exerciseAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  skills            ExerciseSkill[]
+  attempts          ExerciseAttempt[]
+  reviews           ContentReview[]
+  reviewSchedules   ReviewSchedule[]
+
+  @@index([reviewState])
+  @@index([type, difficulty])
+}
+
+model ExerciseSkill {
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  skillId    String
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  weight     Float    @default(1)
+
+  @@id([exerciseId, skillId])
+}
+
+// ─────────────────────────────────────────────────────────── APRENDIZAGEM
+
+model ExerciseAttempt {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId   String
+  exercise     Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  answer       Json
+  correct      Boolean
+  hintsUsed    Int      @default(0)
+  elapsedMs    Int
+  phase        String
+  /// Causa quando incorreto — ver ErrorCause em src/domain/errors.
+  errorCause   String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, exerciseId])
+}
+
+model SkillMastery {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillId         String
+  skill           Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  value           Int      @default(0) // 0..100
+  /// UNKNOWN INTRODUCED DEVELOPING COMPETENT CONSOLIDATED MASTERED
+  state           String   @default("UNKNOWN")
+  confidence      Float    @default(0)  // 0..1
+  decayRatePerDay Float    @default(0.6)
+  attempts        Int      @default(0)
+  correctStreak   Int      @default(0)
+  lastAssessedAt  DateTime?
+  appliedInGame   Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, skillId])
+  @@index([userId, value])
+}
+
+model ReviewSchedule {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SKILL | EXERCISE
+  scope                 String
+  skillId               String?
+  exerciseId            String?
+  exercise              Exercise? @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  stability             Float    @default(1)
+  difficulty            Float    @default(5)
+  reps                  Int      @default(0)
+  lapses                Int      @default(0)
+  lastGrade             Int?     // 1 again | 2 hard | 3 good | 4 easy
+  usedHints             Boolean  @default(false)
+  triggeredMicrolesson  Boolean  @default(false)
+  lastReviewedAt        DateTime?
+  dueAt                 DateTime
+
+  @@index([userId, dueAt])
+  @@unique([userId, scope, skillId, exerciseId])
+}
+
+model ChessScoreSnapshot {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  total        Int      // 0..1000
+  /// { rules, tactics, calculation, strategy, endgame, opening, analysis, practical } cada 0..100
+  components   Json
+  weightsUsed  Json
+  bottleneck   String?
+  strength     String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model DiagnosticResult {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// FROM_ZERO | QUICK | FULL | PGN_IMPORT
+  kind        String
+  answers     Json
+  estimated   Json     // domínio inicial por competência
+  ratingBand  String
+  /// false quando a estimativa não pode ser considerada confiável (ex.: alto nível só com múltipla escolha)
+  reliable    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────── GAMIFICAÇÃO
+// Nenhuma entidade aqui referencia SkillMastery ou ChessScoreSnapshot. ADR-004.
+
+model Streak {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  current        Int      @default(0)
+  longest        Int      @default(0)
+  lastActiveDate DateTime?
+  freezesLeft    Int      @default(2)
+}
+
+/// Foco: energia PEDAGÓGICA. Recupera por revisão, microlição, fundamento, pausa ou reflexão.
+/// NUNCA por compra — ver docs/07 risco P4.
+model FocusState {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value          Int      @default(100) // 0..100
+  lastUpdatedAt  DateTime @default(now())
+}
+
+model XPEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  source    String   // LESSON REVIEW GAME QUEST STREAK
+  /// Fator anti-farming aplicado (0..1).
+  decayApplied Float @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Wallet {
+  id      String @id @default(cuid())
+  userId  String @unique
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coins   Int    @default(0)
+}
+
+model Achievement {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code       String
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, code])
+}
+
+model Quest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  target    Int
+  progress  Int      @default(0)
+  expiresAt DateTime
+  claimedAt DateTime?
+}
+
+model League {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  season    Int
+  entries   LeagueEntry[]
+}
+
+model LeagueEntry {
+  id       String @id @default(cuid())
+  leagueId String
+  league   League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  xp       Int    @default(0)
+
+  @@unique([leagueId, userId])
+}
+
+// ─────────────────────────────────────────────────────────── SOCIAL
+
+model Friendship {
+  id        String   @id @default(cuid())
+  aId       String
+  a         User     @relation("friendA", fields: [aId], references: [id], onDelete: Cascade)
+  bId       String
+  b         User     @relation("friendB", fields: [bId], references: [id], onDelete: Cascade)
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+
+  @@unique([aId, bId])
+}
+
+model Club {
+  id        String @id @default(cuid())
+  slug      String @unique
+  name      String
+  members   ClubMember[]
+}
+
+model ClubMember {
+  id     String @id @default(cuid())
+  clubId String
+  club   Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   String @default("MEMBER")
+
+  @@unique([clubId, userId])
+}
+
+// ─────────────────────────────────────────────────────────── XADREZ E ANÁLISE
+
+model Game {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// BOT | PVP_CASUAL | PVP_RANKED | THEMED | TOURNAMENT_SIM | IMPORTED
+  mode       String
+  userColor  String
+  opponent   String
+  timeControl String?
+  result     String?  // 1-0 0-1 1/2-1/2
+  finalFen   String?
+  pgn        String?
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+
+  moves      GameMove[]
+  analysis   GameAnalysis?
+
+  @@index([userId, startedAt])
+}
+
+model GameMove {
+  id        String @id @default(cuid())
+  gameId    String
+  game      Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  ply       Int
+  san       String
+  fenAfter  String
+  clockMs   Int?
+
+  @@unique([gameId, ply])
+}
+
+model ImportedPGN {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rawPgn     String
+  gamesFound Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model GameAnalysis {
+  id                   String   @id @default(cuid())
+  gameId               String   @unique
+  game                 Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  /// Etapa humana concluída antes da engine? Ver ADR-007.
+  humanStageCompleted  Boolean  @default(false)
+  summary              String?
+  threeDecisions       Json?
+  learning             String?
+  recurringError       String?
+  scoreImpact          Int?
+  /// Materializa a North Star: habilidades dominadas aplicadas corretamente nesta partida.
+  transferredSkillIds  String[]
+  engineDepth          Int?
+  analyzedAt           DateTime?
+
+  criticalMoments      CriticalMoment[]
+  errors               ErrorClassification[]
+}
+
+model CriticalMoment {
+  id          String   @id @default(cuid())
+  analysisId  String
+  analysis    GameAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  ply         Int
+  fen         String
+  playedSan   String
+  bestSan     String?
+  cpBefore    Int?
+  cpAfter     Int?
+  /// Registro humano — preenchido antes de mostrar a engine.
+  humanCandidates String[]
+  humanEval       String?
+  humanTimeSec    Int?
+  humanEmotion    String?
+  skillId     String?
+  skill       Skill?   @relation(fields: [skillId], references: [id], onDelete: SetNull)
+}
+
+model ErrorClassification {
+  id          String   @id @default(cuid())
+  analysisId  String
+  analysis    GameAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  ply         Int
+  /// 13 causas — ver src/domain/errors/taxonomy.ts
+  cause       String
+  severity    String   // MINOR | SERIOUS | DECISIVE
+  /// Abaixo de 0.6 é registrado mas NÃO alimenta o gargalo (docs/02 D5).
+  confidence  Float
+  explanation String
+  recurrence  Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  @@index([cause])
+}
+
+// ─────────────────────────────────────────────────────────── REPERTÓRIO
+
+model Repertoire {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name    String
+  color   String // WHITE | BLACK
+  lines   OpeningLine[]
+}
+
+model OpeningLine {
+  id           String @id @default(cuid())
+  repertoireId String
+  repertoire   Repertoire @relation(fields: [repertoireId], references: [id], onDelete: Cascade)
+  eco          String?
+  name         String
+  pgn          String
+  finalFen     String
+  plan         String?
+  /// Domínio da linha é medido por recall, não por ter salvo a linha.
+  recallScore  Int    @default(0)
+}
+
+// ─────────────────────────────────────────────────────────── COMPETIÇÃO
+
+model Tournament {
+  id         String   @id @default(cuid())
+  name       String
+  federation String?
+  startsAt   DateTime
+  endsAt     DateTime?
+  timeControl String?
+  results    TournamentResult[]
+}
+
+model TournamentResult {
+  id           String @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points       Float
+  games        Int
+  performance  Int?
+  ratingChange Int?
+  normAchieved String?
+
+  @@unique([tournamentId, userId])
+}
+
+// ─────────────────────────────────────────────────────────── TREINADOR
+
+model Coach {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio      String?
+  students CoachStudent[]
+  assignments Assignment[]
+}
+
+model CoachStudent {
+  id        String @id @default(cuid())
+  coachId   String
+  coach     Coach  @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User   @relation("student", fields: [studentId], references: [id], onDelete: Cascade)
+  groupName String?
+
+  @@unique([coachId, studentId])
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  coachId     String
+  coach       Coach    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title       String
+  exerciseIds String[]
+  dueAt       DateTime?
+  completedAt DateTime?
+}
+
+// ─────────────────────────────────────────────────────────── PLATAFORMA
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// FREE | PRO | ELITE — concede acesso a FEATURES, nunca a progresso (ADR-004).
+  plan      String   @default("FREE")
+  status    String   @default("ACTIVE")
+  renewsAt  DateTime?
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Experiment {
+  id            String  @id @default(cuid())
+  key           String  @unique
+  hypothesis    String
+  /// Não pode ser XP, tempo no app ou nº de exercícios (docs/08).
+  primaryMetric String
+  variants      Json
+  active        Boolean @default(false)
+}
+
+model FeatureFlag {
+  id       String  @id @default(cuid())
+  key      String  @unique
+  enabled  Boolean @default(false)
+  rollout  Int     @default(0)
+}
+
+model ContentReview {
+  id          String   @id @default(cuid())
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  reviewerId  String
+  reviewer    User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  /// CHESS_REVIEW | PEDAGOGY_REVIEW | AUTO_TEST
+  stage       String
+  approved    Boolean
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  sessionId String?
+  props     Json
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+}
