@@ -11,8 +11,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Superfícies (tema escuro é o padrão do produto)
-        base: { DEFAULT: "#0F1216", raised: "#171C22", sunken: "#0A0D10" },
+        // Superfícies (tema escuro é o padrão do produto).
+        // Nome "surface", não "base": `base` colidiria com a escala de tamanho de
+        // fonte do Tailwind e faria `text-base` virar uma cor — texto escuro sobre
+        // fundo escuro, invisível.
+        surface: { DEFAULT: "#0F1216", raised: "#171C22", sunken: "#0A0D10" },
         line: { DEFAULT: "#232A33", strong: "#333D4A" },
         ink: { DEFAULT: "#E8EDF2", muted: "#9CA9B7", faint: "#6B7885" },
 

@@ -76,7 +76,7 @@ export const RECRUTA: LeagueDef = {
               fen: START_FEN,
               sideToMove: "w",
               skillIds: ["r1.cor-casa"],
-              difficulty: 1,
+              difficulty: 2,
               ratingHint: 100,
               acceptedAnswer: { color: "light" },
               predictableErrors: [
@@ -116,7 +116,7 @@ export const RECRUTA: LeagueDef = {
               fen: START_FEN,
               sideToMove: "w",
               skillIds: ["r1.cor-casa"],
-              difficulty: 2,
+              difficulty: 4,
               ratingHint: 150,
               acceptedAnswer: { color: "dark" },
               predictableErrors: [
@@ -153,8 +153,8 @@ export const RECRUTA: LeagueDef = {
               prompt: "Sem contar casa por casa: **c7** é clara ou escura?",
               fen: START_FEN,
               sideToMove: "w",
-              skillIds: ["r1.cor-casa"],
-              difficulty: 3,
+              skillIds: ["r1.cor-casa", "r1.localizar"],
+              difficulty: 7,
               ratingHint: 250,
               acceptedAnswer: { color: "dark" },
               predictableErrors: [
@@ -193,7 +193,7 @@ export const RECRUTA: LeagueDef = {
               fen: START_FEN,
               sideToMove: "w",
               skillIds: ["r1.orientacao", "r1.localizar"],
-              difficulty: 2,
+              difficulty: 5,
               ratingHint: 150,
               acceptedAnswer: { choice: "h1" },
               predictableErrors: [
@@ -294,7 +294,7 @@ export const RECRUTA: LeagueDef = {
               fen: "4k3/8/8/4N3/8/8/8/4K3 w - - 0 1",
               sideToMove: "w",
               skillIds: ["r2.cavalo", "r2.casas-atacadas"],
-              difficulty: 2,
+              difficulty: 3,
               ratingHint: 200,
               acceptedAnswer: { squares: ["c4", "c6", "d3", "d7", "f3", "f7", "g4", "g6"] },
               predictableErrors: [
@@ -341,7 +341,7 @@ export const RECRUTA: LeagueDef = {
               fen: "4k3/8/8/8/8/8/8/N3K3 w - - 0 1",
               sideToMove: "w",
               skillIds: ["r2.cavalo"],
-              difficulty: 3,
+              difficulty: 5,
               ratingHint: 250,
               acceptedAnswer: { squares: ["b3", "c2"] },
               predictableErrors: [
@@ -397,7 +397,7 @@ export const RECRUTA: LeagueDef = {
               fen: "4k3/8/3P4/8/3R4/8/8/4K3 w - - 0 1",
               sideToMove: "w",
               skillIds: ["r2.linhas", "r2.casas-atacadas"],
-              difficulty: 4,
+              difficulty: 8,
               ratingHint: 400,
               acceptedAnswer: {
                 squares: ["a4", "b4", "c4", "e4", "f4", "g4", "h4", "d1", "d2", "d3", "d5", "d6"],
@@ -500,7 +500,7 @@ export const RECRUTA: LeagueDef = {
               fen: "4k3/8/8/3q4/8/4N3/8/4K3 w - - 0 1",
               sideToMove: "w",
               skillIds: ["r3.captura", "r3.indefesa"],
-              difficulty: 2,
+              difficulty: 3,
               ratingHint: 300,
               acceptedAnswer: { moves: ["Cxd5"] },
               predictableErrors: [
@@ -546,7 +546,7 @@ export const RECRUTA: LeagueDef = {
               fen: START_FEN,
               sideToMove: "w",
               skillIds: ["r3.valor"],
-              difficulty: 3,
+              difficulty: 5,
               ratingHint: 350,
               acceptedAnswer: { choice: "sim" },
               predictableErrors: [
@@ -581,6 +581,50 @@ export const RECRUTA: LeagueDef = {
               tags: [],
               expectedSeconds: 25,
               points: 8,
+            },
+            {
+              slug: "r3.e3",
+              phase: "MASTERY_TEST",
+              type: "CAPTURE",
+              prompt:
+                "As brancas jogam. Existem duas capturas possíveis com a dama. Só uma delas ganha material.",
+              fen: "4k3/8/2p5/3r3n/8/8/8/4K2Q w - - 0 1",
+              sideToMove: "w",
+              skillIds: ["r3.captura", "r3.valor", "r3.indefesa"],
+              difficulty: 8,
+              ratingHint: 600,
+              acceptedAnswer: { moves: ["Dxh5"] },
+              predictableErrors: [
+                {
+                  answer: "Dxd5",
+                  cause: "EVALUATION",
+                  explanation:
+                    "A torre vale mais que o cavalo, e por isso Dxd5 parece melhor. Mas a torre de d5 está DEFENDIDA pelo peão de c6: depois de cxd5 você trocou dama (9) por torre (5) e perdeu 4 pontos. Valor da peça capturada não decide nada sozinho — quem decide é o saldo depois da recaptura.",
+                },
+              ],
+              explanation: {
+                perceived:
+                  "Você identificou as duas peças pretas ao alcance da dama: a torre de d5 e o cavalo de h5.",
+                threat:
+                  "A armadilha é a torre. Ela vale mais, está na diagonal da dama e parece o alvo óbvio — mas o peão de c6 a defende.",
+                bestDefense:
+                  "Dxh5 leva o cavalo de graça: nada preto defende h5. É a captura que aumenta o saldo.",
+                reason:
+                  "Dxh5 ganha 3 pontos limpos. Dxd5 seria respondida por cxd5 e custaria 4 pontos: dama por torre.",
+                pattern:
+                  "Antes de capturar, conte os defensores da casa de destino. Peça defendida exige comparar o saldo da troca inteira, não o valor da primeira peça.",
+                transferableRule:
+                  "Peça indefesa é alvo. Peça defendida é uma troca — e troca só vale a pena quando o saldo é seu.",
+              },
+              hints: [
+                "As duas capturas da dama são Dxd5 e Dxh5. Qual dessas casas tem defensor?",
+                "Um peão preto captura na diagonal, avançando para baixo. Qual casa o peão de c6 defende?",
+                "c6 defende d5. Então capturar a torre custa a dama; capturar o cavalo não custa nada.",
+              ],
+              marks: [{ kind: "arrow", from: "c6", to: "d5", tone: "bad" }],
+              tags: [],
+              expectedSeconds: 90,
+              points: 18,
             },
           ],
         },
@@ -641,7 +685,7 @@ export const RECRUTA: LeagueDef = {
               fen: "4k3/4r3/5N2/8/8/8/8/K7 b - - 0 1",
               sideToMove: "b",
               skillIds: ["r4.reconhecer"],
-              difficulty: 2,
+              difficulty: 3,
               ratingHint: 250,
               acceptedAnswer: { choice: "xeque" },
               predictableErrors: [
@@ -685,8 +729,8 @@ export const RECRUTA: LeagueDef = {
                 "As pretas jogam e estão em xeque do cavalo de f6. Encontre uma resposta legal.",
               fen: "4k3/4r3/5N2/8/8/8/8/K7 b - - 0 1",
               sideToMove: "b",
-              skillIds: ["r4.tres-respostas", "r4.xeque-cavalo"],
-              difficulty: 3,
+              skillIds: ["r4.reconhecer", "r4.tres-respostas", "r4.xeque-cavalo"],
+              difficulty: 5,
               ratingHint: 350,
               acceptedAnswer: { moves: ["Rd8", "Rf8", "Rf7"] },
               predictableErrors: [
@@ -732,7 +776,7 @@ export const RECRUTA: LeagueDef = {
               fen: "4R2k/6pp/8/2b5/8/8/8/K7 b - - 0 1",
               sideToMove: "b",
               skillIds: ["r4.tres-respostas"],
-              difficulty: 5,
+              difficulty: 8,
               ratingHint: 550,
               acceptedAnswer: { moves: ["Bf8"] },
               predictableErrors: [
@@ -869,7 +913,7 @@ export const RECRUTA: LeagueDef = {
               fen: "6k1/5ppp/8/8/8/8/8/R3K2R w KQ - 0 1",
               sideToMove: "w",
               skillIds: ["r5.mate-em-1"],
-              difficulty: 3,
+              difficulty: 5,
               ratingHint: 400,
               acceptedAnswer: { moves: ["Ta8#"] },
               predictableErrors: [
@@ -907,6 +951,56 @@ export const RECRUTA: LeagueDef = {
               tags: [],
               expectedSeconds: 60,
               points: 12,
+            },
+            {
+              slug: "r5.e3",
+              phase: "MASTERY_TEST",
+              type: "BEST_MOVE",
+              prompt:
+                "As brancas jogam e dão mate em 1. Cuidado: nesta posição existe um lance que empata a partida.",
+              fen: "7k/8/6K1/3Q4/8/8/8/8 w - - 0 1",
+              sideToMove: "w",
+              skillIds: ["r5.mate-em-1", "r5.afogamento"],
+              difficulty: 8,
+              ratingHint: 650,
+              acceptedAnswer: { moves: ["Dd8#", "Dh5#"] },
+              predictableErrors: [
+                {
+                  answer: "Dg5",
+                  cause: "OVERCONFIDENCE",
+                  explanation:
+                    "Dg5 não dá xeque — e é exatamente aí que está o problema. O rei preto tem g7, g8 e h7 cobertas pelo rei branco de g6, e nenhuma outra casa. Sem xeque e sem lance legal: afogamento. Empate com uma dama de vantagem.",
+                },
+                {
+                  answer: "Dg8+",
+                  cause: "CALCULATION_STOPPED",
+                  explanation:
+                    "Dg8+ é xeque, mas a dama vai para uma casa ao lado do rei preto sem estar defendida — o rei de g6 não alcança g8. As pretas simplesmente jogam Rxg8.",
+                },
+              ],
+              explanation: {
+                perceived:
+                  "Você viu que o rei branco de g6 já controla g7, g8 e h7 — as três saídas do rei preto.",
+                threat:
+                  "A ameaça aqui é contra você: com o rei adversário sem casas, qualquer lance de dama que não dê xeque produz afogamento.",
+                bestDefense:
+                  "As pretas não têm defesa depois de Dd8# nem de Dh5#: a dama ataca h8 e o rei branco já cobre todas as fugas.",
+                reason:
+                  "Dd8# ataca pela oitava fileira e Dh5# ataca pela coluna h. Nos dois casos o rei de g6 sustenta o mate.",
+                pattern:
+                  "Rei adversário sem casas de fuga: todo lance ou é mate, ou é afogamento. Não existe meio-termo.",
+                transferableRule:
+                  "Quando estiver muito à frente, antes de cada lance pergunte se o adversário ainda tem lance legal. Meio ponto perdido por afogamento custa o mesmo que uma derrota evitável.",
+              },
+              hints: [
+                "Quantas casas o rei preto de h8 ainda tem? Olhe o que o rei branco de g6 controla.",
+                "Nenhuma. Isso significa que um lance sem xeque produz afogamento.",
+                "Procure um xeque à dama que o rei branco já sustente: pela oitava fileira ou pela coluna h.",
+              ],
+              marks: [{ kind: "highlight", from: "h8", tone: "bad" }],
+              tags: [],
+              expectedSeconds: 120,
+              points: 20,
             },
           ],
         },
@@ -980,7 +1074,7 @@ export const RECRUTA: LeagueDef = {
               fen: "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1",
               sideToMove: "w",
               skillIds: ["r6.roque"],
-              difficulty: 2,
+              difficulty: 3,
               ratingHint: 300,
               acceptedAnswer: { moves: ["O-O"] },
               predictableErrors: [
@@ -1028,7 +1122,7 @@ export const RECRUTA: LeagueDef = {
               fen: "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 2",
               sideToMove: "w",
               skillIds: ["r6.en-passant"],
-              difficulty: 4,
+              difficulty: 6,
               ratingHint: 450,
               acceptedAnswer: { moves: ["exd6"] },
               predictableErrors: [
@@ -1074,7 +1168,7 @@ export const RECRUTA: LeagueDef = {
               fen: "8/4P3/8/8/8/8/8/4K2k w - - 0 1",
               sideToMove: "w",
               skillIds: ["r6.promocao"],
-              difficulty: 2,
+              difficulty: 4,
               ratingHint: 250,
               acceptedAnswer: { moves: ["e8=D"] },
               predictableErrors: [
@@ -1122,7 +1216,7 @@ export const RECRUTA: LeagueDef = {
               fen: START_FEN,
               sideToMove: "w",
               skillIds: ["r6.notacao"],
-              difficulty: 3,
+              difficulty: 7,
               ratingHint: 350,
               acceptedAnswer: { choice: "Cf3" },
               predictableErrors: [

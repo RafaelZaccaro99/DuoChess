@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { COURSE } from "@/content";
 import { buildIndex, nextLesson, skillStatus, unitProgress } from "@/domain/curriculum";
-import { emptyMastery } from "@/domain/mastery";
+import { emptyMastery, masteryCeiling } from "@/domain/mastery";
 import type { SkillMastery } from "@/domain/types";
 
 const T0 = "2026-01-01T10:00:00.000Z";
@@ -98,5 +98,82 @@ describe("próxima lição", () => {
     );
     expect(lesson).not.toBe("r1.l1");
     expect(lesson).toMatch(/^r2\./);
+  });
+});
+
+describe("o currículo publicado é atravessável", () => {
+  /**
+   * Regressão de um bug real: o teto de domínio por dificuldade ficava ABAIXO do
+   * mínimo exigido pela habilidade seguinte, então a unidade seguinte nunca
+   * desbloqueava. O usuário acertava tudo e continuava preso, sem explicação.
+   *
+   * Este teste calcula, para cada habilidade, o maior domínio alcançável com os
+   * exercícios publicados, e confere contra o que o grafo exige.
+   */
+  const maxAchievable = new Map<string, number>();
+  for (const league of COURSE.leagues) {
+    for (const unit of league.units) {
+      for (const lesson of unit.lessons) {
+        for (const exercise of lesson.exercises) {
+          for (const skillId of exercise.skillIds) {
+            const ceiling = masteryCeiling(exercise.difficulty);
+            maxAchievable.set(skillId, Math.max(maxAchievable.get(skillId) ?? 0, ceiling));
+          }
+        }
+      }
+    }
+  }
+
+  it("toda habilidade publicada tem ao menos um exercício", () => {
+    for (const skill of index.skills.values()) {
+      if (COURSE.leagues.find((l) => l.id === skill.leagueId)!.units.length === 0) continue;
+      expect(maxAchievable.get(skill.id), `${skill.id} não tem exercício`).toBeDefined();
+    }
+  });
+
+  it("todo pré-requisito é alcançável com o conteúdo publicado", () => {
+    for (const skill of index.skills.values()) {
+      for (const prerequisiteId of skill.dependsOn) {
+        const achievable = maxAchievable.get(prerequisiteId);
+        if (achievable === undefined) continue;
+        expect(
+          achievable,
+          `${skill.id} exige ${skill.minPrerequisiteMastery} em ${prerequisiteId}, mas o conteúdo publicado só permite chegar a ${achievable}`,
+        ).toBeGreaterThanOrEqual(skill.minPrerequisiteMastery);
+      }
+    }
+  });
+
+  it("cada unidade publicada tem uma prova de domínio", () => {
+    for (const league of COURSE.leagues) {
+      for (const unit of league.units) {
+        const phases = unit.lessons.flatMap((l) => l.exercises.map((e) => e.phase));
+        expect(phases, `unidade ${unit.id} sem prova de domínio`).toContain("MASTERY_TEST");
+      }
+    }
+  });
+});
+
+describe("bloqueio de unidade é por dependência EXTERNA", () => {
+  /**
+   * Regressão: a unidade abria quando qualquer habilidade dela estava livre.
+   * R6 (regras especiais) abria só porque notação depende de R1 — e o aluno caía
+   * nos exercícios de roque sem ter passado por xeque.
+   */
+  it("R6 continua bloqueada mesmo com R1 dominada, porque roque depende de R4", () => {
+    const progress = unitProgress(
+      index,
+      masteries({ "r1.localizar": 95, "r1.cor-casa": 95, "r1.orientacao": 95 }),
+      T0,
+    );
+    const r6 = progress.find((p) => p.unitId === "r6")!;
+    expect(r6.availability).toBe("LOCKED");
+    expect(r6.missingPrerequisiteUnits).toContain("r4");
+  });
+
+  it("dependência interna à unidade não bloqueia a unidade", () => {
+    // r1.cor-casa depende de r1.localizar, ambas em R1.
+    const progress = unitProgress(index, masteries({}), T0);
+    expect(progress.find((p) => p.unitId === "r1")!.availability).toBe("AVAILABLE");
   });
 });

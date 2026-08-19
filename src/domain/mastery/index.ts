@@ -62,13 +62,23 @@ export function stateFor(value: number): MasteryState {
 /**
  * Teto de ganho por dificuldade do item.
  *
- * Um exercício de dificuldade 1 nunca leva alguém acima de 45, por mais que ele
+ * Um exercício de dificuldade 1 nunca leva alguém acima de 46, por mais que ele
  * acerte mil vezes. É assim que "exercícios fáceis não inflam domínio" vira código
  * em vez de intenção.
+ *
+ * `difficulty` é RELATIVA À HABILIDADE, não ao xadrez inteiro: 1–3 é apresentação,
+ * 4–6 é aplicação independente e 7–10 é prova de domínio. Um "8" na Liga Recruta e
+ * um "8" na Liga Mestre são igualmente difíceis para quem está naquela liga — a
+ * âncora absoluta é o campo `ratingHint`, não este.
+ *
+ * A escala precisa permitir que a prova de domínio da própria habilidade chegue
+ * perto de 100. Um teto baixo demais trava o grafo de dependências: a habilidade
+ * nunca alcança o mínimo exigido pela seguinte, e a unidade seguinte fica
+ * permanentemente inacessível.
  */
 export function masteryCeiling(difficulty: number): number {
   const d = clamp(difficulty, 1, 10);
-  return Math.round(35 + d * 6.5); // d=1 → 42 ; d=5 → 68 ; d=10 → 100
+  return Math.round(40 + d * 6); // d=1 → 46 ; d=5 → 70 ; d=8 → 88 ; d=10 → 100
 }
 
 /** Fator de dica: usar as três dicas quase zera o crédito da tentativa. */

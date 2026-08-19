@@ -4,6 +4,13 @@
  * O mapa não é uma trilha linear. Uma habilidade fica disponível quando TODOS os
  * seus pré-requisitos atingem o domínio mínimo — quem já sabe pula, quem não sabe
  * não é empurrado. É a diferença entre um caminho e um corredor.
+ *
+ * GRANULARIDADE DO BLOQUEIO: o grafo governa o acesso a UNIDADES. Dentro de uma
+ * unidade, quem governa é a sequência de fases da lição. Uma unidade ensina um
+ * grupo de habilidades relacionadas de uma vez, e é normal que uma delas dependa
+ * de outra do mesmo grupo — a lição já as apresenta na ordem certa. Exigir o
+ * pré-requisito satisfeito exercício a exercício tornaria a primeira lição de
+ * qualquer unidade impossível de começar.
  */
 
 import type { CourseDef, LeagueDef, SkillDef, UnitDef, LessonDef } from "@/content/schema";
@@ -143,11 +150,17 @@ export function unitProgress(
       }
     }
 
-    // A unidade está disponível se ao menos uma habilidade dela estiver.
-    const anyAvailable = skills.some((s) => statuses.get(s.id)?.availability !== "LOCKED");
+    // A unidade fica bloqueada enquanto QUALQUER habilidade dela depender de algo
+    // ainda não demonstrado em OUTRA unidade. Dependências internas não bloqueiam
+    // (a lição já apresenta as habilidades na ordem certa).
+    //
+    // Bastar uma habilidade livre seria frouxo demais: a unidade de regras
+    // especiais abriria por causa da notação, e o aluno cairia nos exercícios de
+    // roque sem ter passado por xeque.
+    const blockedByOtherUnit = missingUnits.size > 0;
 
     let availability: SkillAvailability;
-    if (!anyAvailable) availability = "LOCKED";
+    if (blockedByOtherUnit) availability = "LOCKED";
     else if (masteredCount === skills.length) availability = "MASTERED";
     else if (mastery > 0) availability = "IN_PROGRESS";
     else availability = "AVAILABLE";

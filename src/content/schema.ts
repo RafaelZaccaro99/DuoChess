@@ -82,6 +82,11 @@ export const exerciseSchema = z.object({
   pgn: z.string().optional(),
   sideToMove: z.enum(["w", "b"]),
   skillIds: z.array(z.string().min(1)).min(1),
+  /**
+   * Dificuldade RELATIVA À HABILIDADE, não ao xadrez inteiro:
+   * 1–3 apresentação e execução guiada · 4–6 execução independente · 7–10 prova de domínio.
+   * A âncora absoluta é `ratingHint`. Ver `masteryCeiling` em src/domain/mastery.
+   */
   difficulty: z.number().int().min(1).max(10),
   ratingHint: z.number().int().min(0).max(2800),
   acceptedAnswer: answerSchema,

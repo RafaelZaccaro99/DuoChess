@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface text-ink antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04";
+  }
+
+  /* Foco visível em tudo. WCAG 2.2 AA — requisito, não polimento. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-surface;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl2 border border-line bg-surface-raised p-5;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl2 px-5 py-3
+           text-sm font-semibold transition-colors disabled:cursor-not-allowed
+           disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand text-surface-sunken hover:bg-brand-strong;
+  }
+
+  .btn-ghost {
+    @apply btn border border-line text-ink hover:border-line-strong hover:bg-surface-raised;
+  }
+
+  .label {
+    @apply text-xs font-semibold uppercase tracking-wider text-ink-faint;
+  }
+}
+
+/* Utilitário para conteúdo só de leitor de tela. */
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
