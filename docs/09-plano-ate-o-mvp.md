@@ -4,6 +4,46 @@ Escrito depois da fundação, medindo o código que existe. Substitui a sequênc
 especulativa de `docs/04` como plano de execução; `docs/04` continua valendo como
 definição de pronto e backlog de épicos.
 
+> **Decisão tomada — autoria do conteúdo.** O conteúdo enxadrístico é pesquisado e
+> escrito a partir de bibliografia especializada e fontes normativas, sem revisor
+> humano titulado no fluxo editorial. Esta página já reflete essa escolha: ela
+> muda a sequência dos blocos, não só a forma de trabalhar. Ver §4.
+
+## 0. O que a decisão de autoria muda
+
+O workflow editorial do spec previa um gate `CHESS_REVIEW` preenchido por uma
+pessoa forte. Sem essa pessoa, o gate ficaria vazio — e o spec é explícito ao
+proibir publicar conteúdo gerado por IA sem validação. Então ele foi **dividido
+em dois gates verificáveis por máquina**:
+
+| Gate | O que confere | Como |
+|---|---|---|
+| `ENGINE_REVIEW` | fatos enxadrísticos | motor de regras hoje; Stockfish a partir de A2: unicidade da solução, se o erro previsível realmente perde, calibração de dificuldade |
+| `SOURCE_REVIEW` | afirmações pedagógicas | toda habilidade ancorada em obra do registro (`src/content/bibliografia.ts`), coerente com a competência e adequada ao nível |
+
+Nenhum item publica sem passar pelos dois. Ambos já rodam em CI
+(`npm run content:validate`) e têm teste que prova que reprovam.
+
+**A consequência de sequência:** sem revisor humano, **a engine passa a ser o
+revisor**. Ela deixa de ser um recurso de produto (bots, análise) e vira
+infraestrutura de qualidade do conteúdo. Por isso o Stockfish sobe de A4 para
+**A2**: nada de tática pode ser publicado com confiança antes dele existir.
+
+**O que essa troca não cobre — e é honesto dizer.** Uma citação prova que a
+afirmação está ancorada numa obra reconhecida, não que a explicação foi conferida
+por alguém forte. A engine confere que `Dxh5` ganha o cavalo; ela não confere se
+chamar aquilo de "peça indefesa" é o nome certo do padrão, nem se a regra
+transferível que escrevemos generaliza bem. O risco migra de *xadrez errado* para
+*ensino errado*. Três respostas, nesta ordem:
+
+1. os dois gates automáticos, que já existem;
+2. o canal de **exercícios contestados** (já previsto em `docs/08`) como correção
+   empírica — item contestado volta para revisão;
+3. uma **auditoria por amostragem** antes do lançamento: um jogador forte revisa
+   ~5% do acervo, procurando erro sistemático em vez de item a item. São poucas
+   horas de trabalho avulso e é o único ponto do plano em que eu recomendo
+   insistir em gente. Não é revisão item a item; é conferir se o método está torto.
+
 ## 1. Onde estamos (medido, não estimado)
 
 | Área | Estado |
@@ -92,23 +132,23 @@ Com as três, os ~430 itens caem para a ordem de **15–20 dias-pessoa**.
 
 ## 4. O plano: duas trilhas em paralelo
 
-A Trilha B só destrava quando A2 entrega o gerador e o pipeline de validação em
-lote. Por isso A2 vem cedo, antes de coisas mais vistosas.
+A Trilha B só destrava quando A2 entrega o revisor automatizado e A3 entrega o
+gerador. Por isso A2 e A3 vêm cedo, antes de coisas mais vistosas.
 
 ### Trilha A — Engenharia
 
 | Bloco | Entrega | Por que nesta posição |
 |---|---|---|
 | **A1** | Servidor, contas e migração de persistência | Postgres + Prisma + autenticação; troca o adaptador local (ADR-005). Tudo depois disso depende de haver onde gravar. |
-| **A2** | Gerador de conteúdo e validação em lote | Destrava a Trilha B, que é a linha crítica. Adiar isto adia o projeto inteiro. |
-| **A3** | Sessão diária e fila de revisão | O motor adaptativo e o FSRS já existem e estão invisíveis. É o maior valor por linha de código do plano. |
-| **A4** | Stockfish, bots e minipartida temática | Worker WASM, tradutor de centipawn para linguagem humana, bots com erro plausível por faixa. |
-| **A5** | Análise de partidas | Import de PGN, etapa humana antes da engine (ADR-007), classificação de causa, DNA do Jogador. Fecha o ciclo e é o que torna a North Star mensurável. |
-| **A6** | Diagnóstico real | Teste rápido e diagnóstico completo por competência. Depende de conteúdo (A2/B) e engine (A4). |
-| **A7** | CMS e workflow editorial | Critério 9 do pronto. Vem tarde porque o gerador já faz o conteúdo fluir antes. |
-| **A8** | Analytics, PWA/offline, E2E, WCAG | Instrumentar a North Star, auditar acessibilidade, fechar. |
+| **A2** | **Stockfish e verificação enxadrística automatizada** | Subiu de A4. Sem revisor humano, a engine é o revisor: unicidade da solução, o erro previsível realmente perde, dificuldade calibrada. Nenhum item tático publica com confiança antes disto. |
+| **A3** | Gerador determinístico e pipeline de autoria | Geração dos tipos que o motor resolve sozinho, importação de posições, e o gate de fontes já ligado. Destrava a produção de conteúdo em volume. |
+| **A4** | Sessão diária e fila de revisão | O motor adaptativo e o FSRS já existem e estão invisíveis. Maior valor por linha de código do plano. |
+| **A5** | Bots, minipartida e análise de partidas | A engine já está pronta desde A2, então este bloco fica bem mais barato do que seria. Import de PGN, etapa humana antes da engine (ADR-007), classificação de causa, DNA. Torna a North Star mensurável. |
+| **A6** | Diagnóstico real | Teste rápido e diagnóstico completo por competência. Depende de conteúdo (A3/B) e engine (A2). |
+| **A7** | CMS com os gates automatizados | Critério 9 do pronto. Vem tarde porque o gerador de A3 já faz o conteúdo fluir antes dele existir. |
+| **A8** | Analytics, PWA/offline, E2E, WCAG | Instrumentar a North Star, auditar acessibilidade, fechar. Inclui a auditoria por amostragem do §0. |
 
-### Trilha B — Conteúdo (começa ao fim de A2)
+### Trilha B — Conteúdo (começa ao fim de A3)
 
 | Bloco | Entrega |
 |---|---|
@@ -124,13 +164,13 @@ Cada bloco fecha quando dá para provar, não quando "parece pronto".
 | Bloco | Aceite |
 |---|---|
 | A1 | O mesmo usuário abre em dois aparelhos e vê o mesmo domínio; `npm test` continua verde sem tocar em `src/domain`. |
-| A2 | O gerador produz ≥ 100 itens e `content:validate` passa em todos, sem exceção manual. |
-| A3 | Um item errado hoje reaparece na fila no dia previsto pelo FSRS; a sessão respeita a mistura configurada e o teto diário. |
-| A4 | O bot de 800 comete erro plausível de 800 — não lance aleatório; a engine nunca bloqueia a interface. |
-| A5 | A engine só aparece depois do registro humano; pular reduz a confiança da classificação e isso é dito na tela. |
+| A2 | Um exercício com solução ambígua é **reprovado** pelo `ENGINE_REVIEW` sem ninguém apontar; a engine nunca bloqueia a interface. |
+| A3 | O gerador produz ≥ 100 itens e `content:validate` passa em todos, sem exceção manual, com fonte citada em cada habilidade. |
+| A4 | Um item errado hoje reaparece na fila no dia previsto pelo FSRS; a sessão respeita a mistura configurada e o teto diário. |
+| A5 | O bot de 800 comete erro plausível de 800, não lance aleatório; a engine só aparece depois do registro humano, e pular reduz a confiança da classificação. |
 | A6 | Duas pessoas com respostas diferentes recebem trilhas diferentes, e o nível avançado continua marcado como não confiável sem partidas. |
-| A7 | Um administrador publica um exercício novo sem deploy, e o item reprovado na validação não sobe. |
-| A8 | North Star calculável a partir de eventos reais; auditoria WCAG 2.2 AA sem violação; E2E cobre onboarding → lição → revisão → análise. |
+| A7 | Um administrador publica um exercício novo sem deploy, e o item reprovado em qualquer dos dois gates não sobe. |
+| A8 | North Star calculável a partir de eventos reais; auditoria WCAG 2.2 AA sem violação; E2E cobre onboarding → lição → revisão → análise; auditoria por amostragem concluída. |
 | B1–B3 | Nenhuma habilidade com menos de 6 itens; toda unidade com prova de domínio; zero divergência no `content:validate`. |
 
 ## 6. Calendário
@@ -139,11 +179,18 @@ Blocos de duas semanas. Duas montagens de equipe:
 
 | Cenário | Equipe | Prazo |
 |---|---|---|
-| Enxuto | 1 dev + 1 autor enxadrista meio-período | **~18 semanas** |
-| Recomendado | 2 devs + 1 autor + revisor titulado avulso | **~11 semanas** |
+| Enxuto | 1 dev, pesquisando e escrevendo o conteúdo | **~17 semanas** |
+| Recomendado | 2 devs, mais auditoria por amostragem avulsa antes do lançamento | **~10 semanas** |
 
-O que muda entre os dois não é a engenharia, é a Trilha B: com um autor só,
-o conteúdo vira o caminho crítico e a engenharia fica esperando.
+**O prazo quase não melhorou com a decisão de autoria, e é importante entender
+por quê.** O trabalho de conteúdo não desapareceu: ele saiu de um autor
+enxadrista e caiu sobre a mesma equipe que escreve o código. As duas trilhas
+deixaram de ser paralelas de verdade e viraram uma fila só.
+
+O que a decisão realmente comprou não foi tempo — foi **remover uma dependência
+de contratação**. Não é mais preciso encontrar, contratar e coordenar alguém
+titulado antes de o conteúdo começar a existir; e o gargalo passa a ser
+engenharia, que é o recurso que já se tem.
 
 ## 7. Se precisar ser mais rápido, corte conteúdo — não mecanismo
 
@@ -160,16 +207,22 @@ bem depois do lançamento.
 
 | Risco | Sinal de alerta | Resposta |
 |---|---|---|
+| **Conteúdo enxadristicamente correto e pedagogicamente errado** | itens contestados concentrados numa mesma habilidade ou padrão | é o risco principal desde a decisão de autoria. Gates automáticos, canal de contestação e auditoria por amostragem (§0) |
 | Volume de conteúdo | fim de B1 atrasado | acionar as três alavancas antes, cortar a terceira liga |
-| Revisor enxadrístico indisponível | fila de `CHESS_REVIEW` crescendo | contratar revisão avulsa por lote; não publicar sem revisão |
+| Conteúdo e código competindo pela mesma pessoa | blocos de engenharia escorregando enquanto B avança (ou o contrário) | separar as semanas explicitamente: alternar blocos, nunca intercalar dentro da semana |
 | Stockfish em aparelho fraco | análise travando a interface | profundidade adaptativa e degradação para fila |
 | FSRS mal calibrado | fila diária impossível ou trivial | teto diário já existe; recalibrar pesos com dados reais em A8 |
 | Custo de análise em lote | conta de infraestrutura subindo | cache por FEN normalizado e limite por plano |
 
 ## 9. Decisões que dependem de você
 
-1. **Quem escreve e quem revisa o conteúdo enxadrístico?** O plano inteiro
-   pendura nesta resposta — é o caminho crítico.
+1. ~~**Quem escreve e quem revisa o conteúdo enxadrístico?**~~ **Respondido:**
+   pesquisa em bibliografia especializada e fontes normativas, sem revisor
+   titulado no fluxo. Os dois gates verificáveis já estão implementados; a
+   auditoria por amostragem do §0 continua recomendada e ainda não está agendada.
 2. **MVP até 1200 (duas ligas) ou até 1400 (três)?** Muda ~4 semanas.
 3. **Contas:** e-mail e senha próprios, ou entrar com Google/Apple?
 4. **Hospedagem:** o caminho mais curto é Vercel com Postgres gerenciado.
+
+Nas três em aberto eu sigo com o padrão razoável se não houver preferência:
+três ligas, entrar com Google e Apple, Vercel com Postgres gerenciado.

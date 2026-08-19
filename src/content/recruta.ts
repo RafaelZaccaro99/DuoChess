@@ -9,10 +9,10 @@
  * línguas na resposta do usuário.
  */
 
-import type { LeagueDef } from "./schema";
+import type { LeagueInput } from "./schema";
 import { START_FEN } from "@/domain/chess/board";
 
-export const RECRUTA: LeagueDef = {
+export const RECRUTA: LeagueInput = {
   id: "recruta",
   title: "Recruta",
   order: 1,
@@ -34,6 +34,7 @@ export const RECRUTA: LeagueDef = {
           title: "Localizar casas por coordenada",
           competency: "rules",
           description: "Encontrar qualquer casa pelo par coluna-fileira, das colunas a–h e fileiras 1–8.",
+          sources: ["dagostini-basico", "maizelis-primer"],
           dependsOn: [],
           minPrerequisiteMastery: 60,
         },
@@ -43,6 +44,7 @@ export const RECRUTA: LeagueDef = {
           competency: "rules",
           description:
             "Dizer se uma casa é clara ou escura sem olhar. Base da visualização e da geometria do bispo.",
+          sources: ["dagostini-basico", "maizelis-primer"],
           dependsOn: ["r1.localizar"],
           minPrerequisiteMastery: 50,
         },
@@ -51,6 +53,7 @@ export const RECRUTA: LeagueDef = {
           title: "Orientação do tabuleiro",
           competency: "rules",
           description: "Montar o tabuleiro corretamente: casa clara no canto inferior direito de cada jogador.",
+          sources: ["fide-laws", "dagostini-basico"],
           dependsOn: [],
           minPrerequisiteMastery: 60,
         },
@@ -248,6 +251,7 @@ export const RECRUTA: LeagueDef = {
           title: "Movimento do cavalo",
           competency: "rules",
           description: "Duas casas numa direção e uma perpendicular. É a única peça que salta.",
+          sources: ["fide-laws", "dagostini-basico", "maizelis-primer"],
           dependsOn: ["r1.localizar"],
           minPrerequisiteMastery: 50,
         },
@@ -256,6 +260,7 @@ export const RECRUTA: LeagueDef = {
           title: "Peças de linha: torre, bispo e dama",
           competency: "rules",
           description: "Movem-se por linhas, colunas e diagonais, e são detidas pela primeira peça no caminho.",
+          sources: ["fide-laws", "dagostini-basico", "maizelis-primer"],
           dependsOn: ["r1.localizar"],
           minPrerequisiteMastery: 50,
         },
@@ -265,6 +270,7 @@ export const RECRUTA: LeagueDef = {
           competency: "rules",
           description:
             "Distinguir onde a peça pode ir de onde a peça ataca. Um peão em e4 ataca d5 e f5, mas anda para e5.",
+          sources: ["maizelis-primer", "dagostini-basico"],
           dependsOn: ["r2.cavalo", "r2.linhas"],
           minPrerequisiteMastery: 55,
         },
@@ -457,6 +463,7 @@ export const RECRUTA: LeagueDef = {
           title: "Executar capturas",
           competency: "rules",
           description: "Ocupar a casa da peça adversária, retirando-a do tabuleiro.",
+          sources: ["fide-laws", "dagostini-basico"],
           dependsOn: ["r2.casas-atacadas"],
           minPrerequisiteMastery: 55,
         },
@@ -465,6 +472,7 @@ export const RECRUTA: LeagueDef = {
           title: "Valor relativo das peças",
           competency: "tactics",
           description: "Peão 1, cavalo 3, bispo 3, torre 5, dama 9. Referência, não lei.",
+          sources: ["capablanca-fundamentals", "dagostini-basico"],
           dependsOn: ["r3.captura"],
           minPrerequisiteMastery: 50,
         },
@@ -473,6 +481,7 @@ export const RECRUTA: LeagueDef = {
           title: "Peça indefesa",
           competency: "tactics",
           description: "Reconhecer peças sem defensor — a matéria-prima de quase toda tática.",
+          sources: ["maizelis-primer", "capablanca-fundamentals"],
           dependsOn: ["r3.valor"],
           minPrerequisiteMastery: 50,
         },
@@ -644,6 +653,7 @@ export const RECRUTA: LeagueDef = {
           title: "Reconhecer o xeque",
           competency: "rules",
           description: "Identificar quando o rei está atacado e por qual peça.",
+          sources: ["fide-laws", "dagostini-basico", "maizelis-primer"],
           dependsOn: ["r2.casas-atacadas"],
           minPrerequisiteMastery: 55,
         },
@@ -652,6 +662,7 @@ export const RECRUTA: LeagueDef = {
           title: "As três respostas ao xeque",
           competency: "rules",
           description: "Capturar a peça atacante, bloquear a linha ou mover o rei — nessa ordem de busca.",
+          sources: ["fide-laws", "dagostini-basico", "maizelis-primer"],
           dependsOn: ["r4.reconhecer"],
           minPrerequisiteMastery: 55,
         },
@@ -660,6 +671,7 @@ export const RECRUTA: LeagueDef = {
           title: "Xeque de cavalo não se bloqueia",
           competency: "rules",
           description: "O cavalo salta: entre ele e o rei não existe linha para interpor peça.",
+          sources: ["fide-laws", "maizelis-primer"],
           dependsOn: ["r4.tres-respostas"],
           minPrerequisiteMastery: 55,
         },
@@ -833,6 +845,7 @@ export const RECRUTA: LeagueDef = {
           title: "Mate em 1",
           competency: "tactics",
           description: "Encontrar o lance que ataca o rei sem deixar resposta legal.",
+          sources: ["dagostini-basico", "maizelis-primer"],
           dependsOn: ["r4.tres-respostas"],
           minPrerequisiteMastery: 60,
         },
@@ -841,6 +854,7 @@ export const RECRUTA: LeagueDef = {
           title: "Reconhecer afogamento",
           competency: "rules",
           description: "Jogador da vez sem lance legal e sem estar em xeque: empate.",
+          sources: ["fide-laws", "silman-endgame"],
           dependsOn: ["r4.reconhecer"],
           minPrerequisiteMastery: 55,
         },
@@ -1021,6 +1035,7 @@ export const RECRUTA: LeagueDef = {
           competency: "rules",
           description:
             "Rei duas casas em direção à torre, torre para a casa atravessada. Cinco condições precisam ser satisfeitas.",
+          sources: ["fide-laws", "dagostini-basico"],
           dependsOn: ["r4.reconhecer"],
           minPrerequisiteMastery: 55,
         },
@@ -1029,6 +1044,7 @@ export const RECRUTA: LeagueDef = {
           title: "En passant",
           competency: "rules",
           description: "Captura de peão que acabou de avançar duas casas, disponível apenas no lance seguinte.",
+          sources: ["fide-laws", "dagostini-basico"],
           dependsOn: ["r3.captura"],
           minPrerequisiteMastery: 55,
         },
@@ -1037,6 +1053,7 @@ export const RECRUTA: LeagueDef = {
           title: "Promoção",
           competency: "rules",
           description: "Peão que chega à última fileira vira dama, torre, bispo ou cavalo — à escolha.",
+          sources: ["fide-laws", "dagostini-basico"],
           dependsOn: ["r3.valor"],
           minPrerequisiteMastery: 50,
         },
@@ -1045,6 +1062,7 @@ export const RECRUTA: LeagueDef = {
           title: "Notação algébrica",
           competency: "analysis",
           description: "Registrar lances: peça, destino, captura, xeque, mate, promoção e roque.",
+          sources: ["fide-laws", "dagostini-basico"],
           dependsOn: ["r1.localizar"],
           minPrerequisiteMastery: 55,
         },

@@ -7,10 +7,10 @@
  * dado simulado silencioso; uma liga vazia é dita como vazia.
  */
 
-import { courseSchema, type CourseDef, type LeagueDef } from "./schema";
+import { courseSchema, type CourseDef, type CourseInput, type LeagueInput } from "./schema";
 import { RECRUTA } from "./recruta";
 
-const PLANNED: LeagueDef[] = [
+const PLANNED: LeagueInput[] = [
   {
     id: "estrategista",
     title: "Estrategista",
@@ -83,7 +83,7 @@ const PLANNED: LeagueDef[] = [
   },
 ];
 
-const raw: CourseDef = {
+const raw: CourseInput = {
   slug: "formacao-completa",
   title: "Formação completa em xadrez",
   locale: "pt-BR",

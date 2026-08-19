@@ -9,6 +9,33 @@
 import { z } from "zod";
 import { COMPETENCIES } from "@/domain/types";
 
+/**
+ * Workflow editorial.
+ *
+ * O spec previa `CHESS_REVIEW` humano. Como o conteúdo é pesquisado a partir de
+ * bibliografia especializada, sem revisor titulado no fluxo, esse estado foi
+ * dividido em dois gates verificáveis por máquina:
+ *
+ *   ENGINE_REVIEW  fatos enxadrísticos, conferidos contra o motor de regras e,
+ *                  a partir do bloco A2, contra o Stockfish (unicidade da
+ *                  solução, o erro previsível realmente perde, dificuldade).
+ *   SOURCE_REVIEW  afirmações pedagógicas ancoradas na bibliografia.
+ *
+ * Nenhum item publica sem passar pelos dois. Ver docs/09 para o que essa troca
+ * cobre e o que ela deliberadamente não cobre.
+ */
+export const REVIEW_STATES = [
+  "DRAFT",
+  "ENGINE_REVIEW",
+  "SOURCE_REVIEW",
+  "PEDAGOGY_REVIEW",
+  "PUBLISHED",
+  "MONITORING",
+  "CONTESTED",
+] as const;
+
+export type ReviewState = (typeof REVIEW_STATES)[number];
+
 /** Tipos modulares de exercício. Cada um tem um avaliador em src/domain/chess/evaluate.ts */
 export const EXERCISE_TYPES = [
   "LEGAL_MOVES",      // quais lances a peça pode fazer
@@ -97,6 +124,12 @@ export const exerciseSchema = z.object({
   tags: z.array(z.string()).default([]),
   expectedSeconds: z.number().int().min(3).max(1800),
   points: z.number().int().min(1).max(100),
+  /**
+   * Fontes específicas deste item, quando ele afirma algo que a habilidade não
+   * cobre (um final teórico nomeado, uma regra normativa citada). Opcional: por
+   * padrão o item herda as fontes da habilidade.
+   */
+  sources: z.array(z.string().min(1)).default([]),
 });
 
 export type ExerciseDef = z.infer<typeof exerciseSchema>;
@@ -106,6 +139,14 @@ export const skillSchema = z.object({
   title: z.string().min(3),
   competency: z.enum(COMPETENCIES),
   description: z.string().min(10),
+  /**
+   * Fontes que ancoram o que esta habilidade ensina (ids de src/content/bibliografia.ts).
+   *
+   * Obrigatório e não vazio: sem revisor humano titulado no fluxo, a bibliografia
+   * é o que separa "afirmação enxadrística ancorada" de "texto plausível gerado".
+   * O validador recusa habilidade sem fonte e fonte inexistente.
+   */
+  sources: z.array(z.string().min(1)).min(1),
   /** IDs de habilidades pré-requisito. Grafo, não lista linear. */
   dependsOn: z.array(z.string()).default([]),
   /** Domínio mínimo no pré-requisito para desbloquear. */
@@ -163,3 +204,17 @@ export const courseSchema = z.object({
 });
 
 export type CourseDef = z.infer<typeof courseSchema>;
+
+/**
+ * Tipos de ENTRADA do schema.
+ *
+ * Campos com `.default()` são obrigatórios no tipo de saída e opcionais na
+ * entrada. Os arquivos de conteúdo são entrada — quem os anota com o tipo de
+ * saída acaba tendo que escrever `sources: []` e `marks: []` em todo item só
+ * para satisfazer o compilador. `courseSchema.parse()` preenche os defaults.
+ */
+export type ExerciseInput = z.input<typeof exerciseSchema>;
+export type LessonInput = z.input<typeof lessonSchema>;
+export type UnitInput = z.input<typeof unitSchema>;
+export type LeagueInput = z.input<typeof leagueSchema>;
+export type CourseInput = z.input<typeof courseSchema>;

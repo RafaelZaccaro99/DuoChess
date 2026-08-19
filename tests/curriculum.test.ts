@@ -184,7 +184,7 @@ describe("próximo passo é sempre uma ação possível", () => {
    * estava trancada atrás de R2 e R3. Diagnóstico correto, recomendação sem saída.
    */
   it("nunca aponta para uma lição de unidade bloqueada", () => {
-    const cenarios = [
+    const cenarios: Array<Record<string, number>> = [
       {},
       { "r1.localizar": 95, "r1.cor-casa": 95, "r1.orientacao": 95 },
       { "r1.localizar": 95, "r1.cor-casa": 95, "r1.orientacao": 95, "r2.cavalo": 90, "r2.linhas": 90, "r2.casas-atacadas": 90 },

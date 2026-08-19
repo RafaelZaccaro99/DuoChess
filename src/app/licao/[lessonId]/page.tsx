@@ -17,6 +17,7 @@ import { ProgressBar } from "@/components/ui/Meters";
 import { Board } from "@/components/board/Board";
 import { AnswerInput } from "@/components/lesson/AnswerInput";
 import { Feedback } from "@/components/lesson/Feedback";
+import { Fontes } from "@/components/lesson/Fontes";
 import { COURSE } from "@/content";
 import { buildIndex, nextStep, skillIndexForScore } from "@/domain/curriculum";
 import { computeChessScore } from "@/domain/score/chess-score";
@@ -50,6 +51,17 @@ export default function LessonPage() {
   const { state, ready, update } = useProgress();
 
   const lesson = INDEX.lessons.get(params.lessonId);
+
+  const fontesDaLicao = useMemo(() => {
+    if (!lesson) return [];
+    const skillIds = new Set(lesson.exercises.flatMap((e) => e.skillIds));
+    return [
+      ...new Set([
+        ...[...skillIds].flatMap((id) => INDEX.skills.get(id)?.sources ?? []),
+        ...lesson.exercises.flatMap((e) => e.sources),
+      ]),
+    ];
+  }, [lesson]);
 
   const [stage, setStage] = useState<Stage>("concept");
   const [step, setStep] = useState(0);
@@ -176,6 +188,8 @@ export default function LessonPage() {
                 <p className="mt-3 text-sm leading-relaxed text-ink-muted">{lesson.demo.caption}</p>
               </div>
             )}
+
+            <Fontes sourceIds={fontesDaLicao} />
 
             <button
               type="button"

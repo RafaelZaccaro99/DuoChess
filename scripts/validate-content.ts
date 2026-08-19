@@ -14,6 +14,7 @@ import type { ExerciseDef } from "../src/content/schema";
 import { evaluateExercise } from "../src/domain/chess/evaluate";
 import { buildIndex } from "../src/domain/curriculum";
 import { ERROR_CAUSES } from "../src/domain/errors/taxonomy";
+import { SOURCE_IDS, getSource } from "../src/content/bibliografia";
 
 interface Problem {
   where: string;
@@ -103,9 +104,70 @@ function checkExercise(exercise: ExerciseDef, where: string, knownSkills: Set<st
   seenFenType.set(key, exercise.slug);
 }
 
+/**
+ * Gate SOURCE_REVIEW.
+ *
+ * Sem revisor humano titulado no fluxo, a bibliografia é o que separa afirmação
+ * ancorada de texto plausível. Três checagens:
+ *   1. a fonte citada existe no registro;
+ *   2. alguma delas cobre a competência da habilidade;
+ *   3. alguma delas é adequada ao nível — citar Dvoretsky numa lição de Recruta
+ *      é tão errado quanto não citar nada.
+ */
+function checkSources(index: ReturnType<typeof buildIndex>): void {
+  for (const skill of index.skills.values()) {
+    const where = `skill ${skill.id}`;
+
+    const desconhecidas = skill.sources.filter((id) => !SOURCE_IDS.has(id));
+    if (desconhecidas.length > 0) {
+      problems.push({ where, message: `fonte fora do registro: ${desconhecidas.join(", ")}` });
+      continue;
+    }
+
+    const fontes = skill.sources.map((id) => getSource(id)!);
+
+    if (!fontes.some((f) => f.competencies.includes(skill.competency))) {
+      problems.push({
+        where,
+        message: `nenhuma fonte cobre a competência "${skill.competency}" (citadas: ${skill.sources.join(", ")})`,
+      });
+    }
+
+    // Nível da habilidade: o menor ratingHint entre os exercícios que a treinam.
+    const ratings = [...index.lessons.values()]
+      .flatMap((l) => l.exercises)
+      .filter((e) => e.skillIds.includes(skill.id))
+      .map((e) => e.ratingHint);
+    if (ratings.length === 0) continue;
+    const nivel = Math.min(...ratings);
+
+    if (!fontes.some((f) => nivel >= f.levelMin - 200 && nivel <= f.levelMax)) {
+      problems.push({
+        where,
+        message: `nenhuma fonte é adequada ao nível ~${nivel} (citadas: ${fontes.map((f) => `${f.id} [${f.levelMin}-${f.levelMax}]`).join(", ")})`,
+      });
+    }
+  }
+
+  // Exercícios podem citar fontes próprias; elas também precisam existir.
+  for (const lesson of index.lessons.values()) {
+    for (const exercise of lesson.exercises) {
+      const desconhecidas = exercise.sources.filter((id) => !SOURCE_IDS.has(id));
+      if (desconhecidas.length > 0) {
+        problems.push({
+          where: `exercício ${exercise.slug}`,
+          message: `fonte fora do registro: ${desconhecidas.join(", ")}`,
+        });
+      }
+    }
+  }
+}
+
 function main(): void {
   const index = buildIndex(COURSE);
   const knownSkills = new Set(index.skills.keys());
+
+  checkSources(index);
 
   // Dependências precisam existir e não podem ser circulares.
   for (const skill of index.skills.values()) {
@@ -139,9 +201,13 @@ function main(): void {
 
   const exerciseCount = seenSlugs.size;
   if (problems.length === 0) {
+    const fontesUsadas = new Set([...index.skills.values()].flatMap((s) => s.sources));
     console.log(
-      `Conteúdo validado: ${index.skills.size} habilidades, ${index.lessons.size} lições, ${exerciseCount} exercícios.`,
+      `Conteúdo validado: ${index.skills.size} habilidades, ${index.lessons.size} lições, ` +
+        `${exerciseCount} exercícios, ${fontesUsadas.size} fontes citadas.`,
     );
+    console.log("  ENGINE_REVIEW: FEN, legalidade, gabarito e erros previsíveis conferidos.");
+    console.log("  SOURCE_REVIEW: toda habilidade ancorada em fonte existente, coerente e de nível adequado.");
     return;
   }
 
