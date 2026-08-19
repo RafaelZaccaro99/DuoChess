@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { COURSE } from "@/content";
-import { buildIndex, nextLesson, skillStatus, unitProgress } from "@/domain/curriculum";
+import { buildIndex, nextLesson, nextStep, skillStatus, unitProgress } from "@/domain/curriculum";
 import { emptyMastery, masteryCeiling } from "@/domain/mastery";
 import type { SkillMastery } from "@/domain/types";
 
@@ -175,5 +175,39 @@ describe("bloqueio de unidade é por dependência EXTERNA", () => {
     // r1.cor-casa depende de r1.localizar, ambas em R1.
     const progress = unitProgress(index, masteries({}), T0);
     expect(progress.find((p) => p.unitId === "r1")!.availability).toBe("AVAILABLE");
+  });
+});
+
+describe("próximo passo é sempre uma ação possível", () => {
+  /**
+   * Regressão: o resumo dizia "faça a primeira lição de Tática" enquanto Tática
+   * estava trancada atrás de R2 e R3. Diagnóstico correto, recomendação sem saída.
+   */
+  it("nunca aponta para uma lição de unidade bloqueada", () => {
+    const cenarios = [
+      {},
+      { "r1.localizar": 95, "r1.cor-casa": 95, "r1.orientacao": 95 },
+      { "r1.localizar": 95, "r1.cor-casa": 95, "r1.orientacao": 95, "r2.cavalo": 90, "r2.linhas": 90, "r2.casas-atacadas": 90 },
+    ];
+
+    for (const cenario of cenarios) {
+      const m = masteries(cenario);
+      const passo = nextStep(index, m, T0);
+      expect(passo, `sem próximo passo em ${JSON.stringify(cenario)}`).not.toBeNull();
+
+      const unidades = new Map(unitProgress(index, m, T0).map((u) => [u.unitId, u]));
+      expect(
+        unidades.get(passo!.unitId)!.availability,
+        `próximo passo aponta para ${passo!.unitId}, que está bloqueada`,
+      ).not.toBe("LOCKED");
+    }
+  });
+
+  it("avança conforme o aluno domina as unidades anteriores", () => {
+    expect(nextStep(index, masteries({}), T0)!.unitId).toBe("r1");
+    expect(
+      nextStep(index, masteries({ "r1.localizar": 95, "r1.cor-casa": 95, "r1.orientacao": 95 }), T0)!
+        .unitId,
+    ).toBe("r2");
   });
 });

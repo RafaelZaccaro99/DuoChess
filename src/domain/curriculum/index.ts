@@ -178,6 +178,54 @@ export function unitProgress(
   });
 }
 
+export interface NextStep {
+  lessonId: string;
+  unitId: string;
+  unitTitle: string;
+  skillId: string;
+  mastery: number;
+}
+
+/**
+ * O próximo passo CONCRETO: a lição da fronteira com menor domínio.
+ *
+ * Existe porque o gargalo do Chess Score aponta a competência com maior ganho
+ * disponível — que pode estar trancada atrás de pré-requisitos. Dizer "estude
+ * tática" para quem ainda não pode abrir tática é uma recomendação sem saída.
+ * O diagnóstico continua sendo o gargalo; isto é o que dá para fazer hoje.
+ */
+export function nextStep(
+  index: CurriculumIndex,
+  masteries: ReadonlyMap<string, SkillMastery>,
+  nowIso: string,
+): NextStep | null {
+  const statuses = skillStatus(index, masteries, nowIso);
+  const units = new Map(unitProgress(index, masteries, nowIso).map((u) => [u.unitId, u]));
+
+  const frontier = [...statuses.values()]
+    .filter((s) => s.availability === "AVAILABLE" || s.availability === "IN_PROGRESS")
+    // Uma habilidade livre dentro de uma unidade trancada não é um passo possível.
+    .filter((s) => {
+      const unitId = index.skills.get(s.skillId)?.unitId;
+      return unitId ? units.get(unitId)?.availability !== "LOCKED" : false;
+    })
+    .sort((a, b) => a.mastery - b.mastery);
+
+  for (const status of frontier) {
+    const lessonId = index.lessonsBySkill.get(status.skillId)?.[0];
+    const unitId = index.skills.get(status.skillId)?.unitId;
+    if (!lessonId || !unitId) continue;
+    return {
+      lessonId,
+      unitId,
+      unitTitle: index.units.get(unitId)?.title ?? unitId,
+      skillId: status.skillId,
+      mastery: status.mastery,
+    };
+  }
+  return null;
+}
+
 /** Próxima lição recomendada: a da fronteira com menor domínio. */
 export function nextLesson(
   index: CurriculumIndex,

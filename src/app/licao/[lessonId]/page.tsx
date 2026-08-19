@@ -18,11 +18,12 @@ import { Board } from "@/components/board/Board";
 import { AnswerInput } from "@/components/lesson/AnswerInput";
 import { Feedback } from "@/components/lesson/Feedback";
 import { COURSE } from "@/content";
-import { buildIndex, skillIndexForScore } from "@/domain/curriculum";
+import { buildIndex, nextStep, skillIndexForScore } from "@/domain/curriculum";
 import { computeChessScore } from "@/domain/score/chess-score";
 import {
   applyFocusRecovery,
   masteryList,
+  masteryMap,
   recordAttempt,
   totalXP,
   type AttemptEffects,
@@ -91,6 +92,11 @@ export default function LessonPage() {
   const score = useMemo(() => {
     if (!state) return null;
     return computeChessScore(masteryList(state), SKILL_INDEX, new Date().toISOString());
+  }, [state]);
+
+  const proximo = useMemo(() => {
+    if (!state) return null;
+    return nextStep(INDEX, masteryMap(state), new Date().toISOString());
   }, [state]);
 
   if (!ready || !state) {
@@ -285,7 +291,11 @@ export default function LessonPage() {
               </div>
               <div>
                 <p className="label">Próximo passo</p>
-                <p className="mt-1 text-sm text-ink-muted">{score.nextRecommendation}</p>
+                <p className="mt-1 text-sm text-ink-muted">
+                  {proximo
+                    ? `${proximo.unitTitle} — é a unidade desbloqueada com menor domínio.`
+                    : score.nextRecommendation}
+                </p>
               </div>
             </div>
 

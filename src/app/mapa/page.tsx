@@ -14,7 +14,7 @@ import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
 import { COURSE } from "@/content";
-import { buildIndex, nextLesson, skillIndexForScore, unitProgress } from "@/domain/curriculum";
+import { buildIndex, nextStep, skillIndexForScore, unitProgress } from "@/domain/curriculum";
 import { masteryMap, masteryList } from "@/domain/session";
 import { computeChessScore } from "@/domain/score/chess-score";
 import { planSession } from "@/domain/adaptive";
@@ -38,7 +38,7 @@ export default function MapaPage() {
       now,
       units: unitProgress(INDEX, masteries, now),
       score: computeChessScore(masteryList(state), SKILL_INDEX, now),
-      next: nextLesson(INDEX, masteries, now),
+      next: nextStep(INDEX, masteries, now),
       due: dueQueue(Object.values(state.reviewCards), now),
       plan: planSession({
         index: INDEX,
@@ -182,7 +182,7 @@ export default function MapaPage() {
           })}
         </ol>
 
-        {/* ── Gargalo */}
+        {/* ── Gargalo (diagnóstico) e próximo passo (ação possível hoje) */}
         <section className="mt-8 card">
           <p className="label">Seu gargalo agora</p>
           {view.plan.bottleneckCause ? (
@@ -203,6 +203,18 @@ export default function MapaPage() {
                 {view.score.nextRecommendation}
               </p>
             </>
+          )}
+
+          {view.next && (
+            <div className="mt-4 border-t border-line pt-4">
+              <p className="label">Próximo passo possível hoje</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
+                {view.next.unitTitle} — é a unidade desbloqueada com menor domínio.
+              </p>
+              <Link href={`/licao/${view.next.lessonId}`} className="btn-ghost mt-3">
+                Ir para a lição
+              </Link>
+            </div>
           )}
         </section>
 
