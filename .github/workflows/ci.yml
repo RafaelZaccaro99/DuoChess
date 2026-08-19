@@ -19,8 +19,15 @@ jobs:
         run: npm run typecheck
       - name: Testes
         run: npm test
-      # Conteúdo enxadrístico é conferido contra o motor de regras antes de subir.
-      - name: Validação de conteúdo
+      # Gate SOURCE_REVIEW + a parte do ENGINE_REVIEW que o motor de regras cobre.
+      - name: Conteúdo — regras e fontes
         run: npm run content:validate
+      # Resto do ENGINE_REVIEW: unicidade da solução e erro previsível que erra
+      # mesmo. Passo próprio porque é lento — sobe Stockfish e analisa posição a
+      # posição. É o revisor enxadrístico do projeto; não pode ser opcional.
+      - name: Conteúdo — engine
+        run: npm run content:engine
+        env:
+          ENGINE_DEPTH: 14
       - name: Build
         run: npm run build

@@ -62,9 +62,10 @@ npm run prisma:seed           # semeia o currículo (o conteúdo em git é a fon
 ```bash
 npm run dev               # desenvolvimento
 npm run build             # build de produção
-npm test                  # 104 testes; os de integração pulam sem DATABASE_URL
+npm test                  # 130 testes; os de integração pulam sem DATABASE_URL
 npm run typecheck         # TypeScript estrito
-npm run content:validate  # confere FEN, legalidade, gabarito, ciclos e duplicidade
+npm run content:validate  # gate SOURCE_REVIEW + regras: FEN, legalidade, gabarito, fontes
+npm run content:engine    # gate ENGINE_REVIEW: unicidade da solução, erro que erra mesmo
 ```
 
 ## Estrutura

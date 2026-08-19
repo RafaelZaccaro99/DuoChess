@@ -130,6 +130,16 @@ export const exerciseSchema = z.object({
    * padrão o item herda as fontes da habilidade.
    */
   sources: z.array(z.string().min(1)).default([]),
+  /**
+   * Como o gate ENGINE_REVIEW deve julgar este item.
+   *
+   * `BEST`            a solução precisa ser objetivamente a melhor entre os
+   *                   candidatos da pergunta (o padrão para itens de lance).
+   * `RULE_EXECUTION`  o item pede para EXECUTAR uma regra — roque, en passant,
+   *                   promoção. A afirmação é sobre legalidade, não sobre
+   *                   avaliação, e julgar por centipawns seria erro de categoria.
+   */
+  verification: z.enum(["BEST", "RULE_EXECUTION"]).default("BEST"),
 });
 
 export type ExerciseDef = z.infer<typeof exerciseSchema>;

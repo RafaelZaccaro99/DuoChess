@@ -596,13 +596,13 @@ export const RECRUTA: LeagueInput = {
               phase: "MASTERY_TEST",
               type: "CAPTURE",
               prompt:
-                "As brancas jogam. Existem duas capturas possíveis com a dama. Só uma delas ganha material.",
-              fen: "4k3/8/2p5/3r3n/8/8/8/4K2Q w - - 0 1",
+                "As brancas jogam. A dama tem duas capturas possíveis. Só uma delas ganha material.",
+              fen: "4k3/8/2p5/3r4/7n/8/8/4K2Q w - - 0 1",
               sideToMove: "w",
               skillIds: ["r3.captura", "r3.valor", "r3.indefesa"],
               difficulty: 8,
               ratingHint: 600,
-              acceptedAnswer: { moves: ["Dxh5"] },
+              acceptedAnswer: { moves: ["Dxh4"] },
               predictableErrors: [
                 {
                   answer: "Dxd5",
@@ -613,20 +613,20 @@ export const RECRUTA: LeagueInput = {
               ],
               explanation: {
                 perceived:
-                  "Você identificou as duas peças pretas ao alcance da dama: a torre de d5 e o cavalo de h5.",
+                  "Você identificou as duas peças pretas ao alcance da dama: a torre de d5 e o cavalo de h4.",
                 threat:
                   "A armadilha é a torre. Ela vale mais, está na diagonal da dama e parece o alvo óbvio — mas o peão de c6 a defende.",
                 bestDefense:
-                  "Dxh5 leva o cavalo de graça: nada preto defende h5. É a captura que aumenta o saldo.",
+                  "Dxh4 leva o cavalo de graça: nada preto defende h4. É a captura que aumenta o saldo.",
                 reason:
-                  "Dxh5 ganha 3 pontos limpos. Dxd5 seria respondida por cxd5 e custaria 4 pontos: dama por torre.",
+                  "Dxh4 ganha 3 pontos limpos. Dxd5 seria respondida por cxd5 e custaria 4 pontos: dama por torre.",
                 pattern:
                   "Antes de capturar, conte os defensores da casa de destino. Peça defendida exige comparar o saldo da troca inteira, não o valor da primeira peça.",
                 transferableRule:
                   "Peça indefesa é alvo. Peça defendida é uma troca — e troca só vale a pena quando o saldo é seu.",
               },
               hints: [
-                "As duas capturas da dama são Dxd5 e Dxh5. Qual dessas casas tem defensor?",
+                "As duas capturas da dama são Dxd5 e Dxh4. Qual dessas casas tem defensor?",
                 "Um peão preto captura na diagonal, avançando para baixo. Qual casa o peão de c6 defende?",
                 "c6 defende d5. Então capturar a torre custa a dama; capturar o cavalo não custa nada.",
               ],
@@ -1128,6 +1128,7 @@ export const RECRUTA: LeagueInput = {
               ],
               marks: [],
               tags: [],
+              verification: "RULE_EXECUTION",
               expectedSeconds: 30,
               points: 8,
             },
@@ -1175,6 +1176,7 @@ export const RECRUTA: LeagueInput = {
               ],
               marks: [],
               tags: [],
+              verification: "RULE_EXECUTION",
               expectedSeconds: 60,
               points: 14,
             },
@@ -1222,6 +1224,7 @@ export const RECRUTA: LeagueInput = {
               ],
               marks: [],
               tags: [],
+              verification: "RULE_EXECUTION",
               expectedSeconds: 30,
               points: 8,
             },
