@@ -13,18 +13,24 @@
     "test:watch": "vitest",
     "content:validate": "tsx scripts/validate-content.ts",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
     "chess.js": "^1.0.0-beta.8",
     "clsx": "^2.1.1",
+    "jose": "^6.2.9",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^2.6.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
@@ -36,5 +42,7 @@
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

@@ -12,3 +12,6 @@ next-env.d.ts
 coverage/
 .vercel
 .shots/
+
+# Banco local de desenvolvimento
+/var/lib/postgresql

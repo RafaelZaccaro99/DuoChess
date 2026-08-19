@@ -27,7 +27,7 @@ const INDEX = buildIndex(COURSE);
 const SKILL_INDEX = skillIndexForScore(INDEX);
 
 export default function MapaPage() {
-  const { state, ready, storageLabel } = useProgress();
+  const { state, ready, storageLabel, pendingImport, importLocal, dismissImport } = useProgress();
 
   const view = useMemo(() => {
     if (!state) return null;
@@ -68,6 +68,28 @@ export default function MapaPage() {
     <>
       <StatusBar />
       <main className="mx-auto max-w-3xl px-5 py-8">
+        {/* Progresso feito sem conta não é descartado em silêncio ao entrar. */}
+        {pendingImport && (
+          <div className="mb-6 rounded-xl2 border border-brand/50 bg-brand-soft p-4">
+            <p className="text-sm font-semibold">
+              Você tem progresso salvo neste navegador, de antes de criar a conta.
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+              {pendingImport.attempts.length}{" "}
+              {pendingImport.attempts.length === 1 ? "exercício resolvido" : "exercícios resolvidos"}.
+              Quer trazer para a sua conta?
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className="btn-primary" onClick={importLocal}>
+                Trazer para a conta
+              </button>
+              <button type="button" className="btn-ghost" onClick={dismissImport}>
+                Descartar
+              </button>
+            </div>
+          </div>
+        )}
+
         {!state.onboarding && (
           <div className="mb-6 rounded-xl2 border border-brand/40 bg-brand-soft p-4">
             <p className="text-sm font-semibold">Você ainda não fez o onboarding.</p>
@@ -245,8 +267,7 @@ export default function MapaPage() {
         </section>
 
         <p className="mt-8 text-xs leading-relaxed text-ink-faint">
-          Seu progresso está salvo em: {storageLabel}. Ainda não há conta nem sincronização entre
-          dispositivos — isso entra na Sprint 3, com o adaptador de servidor.
+          Seu progresso está salvo em: {storageLabel}.
         </p>
       </main>
     </>

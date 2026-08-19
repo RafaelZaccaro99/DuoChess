@@ -39,19 +39,30 @@ Rode `npm install && npm run dev` e abra `http://localhost:3000`.
 
 O spec proíbe dado simulado silencioso e botão sem função. Por isso:
 
-- **Progresso é local ao dispositivo.** Não há conta nem sincronização. A interface diz
-  isso; o schema Prisma completo já está em `prisma/schema.prisma` e o adaptador de
-  servidor entra na Sprint 3, trocando só `src/lib/storage.ts` (ADR-005).
+- **Ligas 2 a 8 ainda sem conteúdo** — ver abaixo.
 - **Ligas 2 a 8 estão declaradas e sem conteúdo.** Aparecem marcadas como "em produção".
 - **Diagnóstico, importação de PGN, bots e análise de partidas** estão nas sprints 3, 5 e 6.
   As portas de entrada do onboarding dizem isso em vez de simular um resultado.
+
+## Banco de dados
+
+O bloco A1 está pronto: contas, sessão e progresso no servidor. Sem `DATABASE_URL`
+o app continua funcionando com o adaptador local do navegador — a interface diz onde
+o progresso está guardado, em vez de fingir que existe conta.
+
+```bash
+createdb mestrexadrez
+cp .env.example .env          # ajuste DATABASE_URL e AUTH_SECRET
+npm run prisma:migrate        # cria as 47 tabelas
+npm run prisma:seed           # semeia o currículo (o conteúdo em git é a fonte)
+```
 
 ## Comandos
 
 ```bash
 npm run dev               # desenvolvimento
 npm run build             # build de produção
-npm test                  # 85 testes de domínio e arquitetura
+npm test                  # 104 testes; os de integração pulam sem DATABASE_URL
 npm run typecheck         # TypeScript estrito
 npm run content:validate  # confere FEN, legalidade, gabarito, ciclos e duplicidade
 ```

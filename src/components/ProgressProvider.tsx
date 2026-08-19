@@ -3,9 +3,14 @@
 /**
  * Estado do usuário no cliente.
  *
- * O provider é apenas transporte: toda transição de estado acontece em
- * `src/domain/session`, que é puro e testado. Aqui só carregamos, salvamos e
- * distribuímos.
+ * O provider é transporte: toda transição de estado acontece em
+ * `src/domain/session`, que é puro e testado. Aqui só escolhemos onde guardar,
+ * carregamos, salvamos e distribuímos.
+ *
+ * Dois adaptadores (ADR-005): sem conta, o progresso fica no navegador; com
+ * conta, vai para o servidor e acompanha o usuário entre aparelhos. Na primeira
+ * entrada, o progresso local é oferecido para importação em vez de descartado
+ * em silêncio — quem estudou sem conta não pode perder o que fez.
  */
 
 import {
@@ -17,61 +22,151 @@ import {
   useRef,
   useState,
 } from "react";
-import { createRepository, freshProgress, type ProgressRepository } from "@/lib/storage";
+import {
+  LocalProgressRepository,
+  RemoteProgressRepository,
+  discardLocalProgress,
+  freshProgress,
+  type ProgressRepository,
+} from "@/lib/storage";
+import { carregarProgresso, salvarProgresso, usuarioAtual } from "@/app/actions";
 import type { ProgressState } from "@/domain/session";
+
+export interface SessionInfo {
+  id: string;
+  email: string;
+  displayName: string;
+}
 
 interface ProgressContextValue {
   state: ProgressState | null;
-  /** false enquanto o estado ainda não foi lido do dispositivo. */
   ready: boolean;
+  user: SessionInfo | null;
+  storageLabel: string;
+  /** Preenchido quando a última gravação falhou. Nunca falhamos em silêncio. */
+  saveError: string | null;
+  /** Há progresso local aguardando importação para a conta. */
+  pendingImport: ProgressState | null;
   update(fn: (previous: ProgressState) => ProgressState): void;
   reset(): void;
-  storageLabel: string;
+  importLocal(): void;
+  dismissImport(): void;
 }
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export function ProgressProvider({ children }: { children: React.ReactNode }) {
-  const repositoryRef = useRef<ProgressRepository | null>(null);
-  if (!repositoryRef.current) repositoryRef.current = createRepository();
-  const repository = repositoryRef.current;
+  const localRef = useRef<LocalProgressRepository | null>(null);
+  if (!localRef.current) localRef.current = new LocalProgressRepository();
+  const local = localRef.current;
+
+  const remote = useMemo(
+    () =>
+      new RemoteProgressRepository({
+        carregar: () => carregarProgresso(),
+        salvar: (s) => salvarProgresso(s),
+      }),
+    [],
+  );
 
   const [state, setState] = useState<ProgressState | null>(null);
   const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<SessionInfo | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<ProgressState | null>(null);
+
+  const repository: ProgressRepository = user ? remote : local;
 
   useEffect(() => {
-    let cancelled = false;
-    void repository.load().then((loaded) => {
-      if (cancelled) return;
-      setState(loaded ?? freshProgress());
+    let cancelado = false;
+
+    void (async () => {
+      const sessao = await usuarioAtual();
+      if (cancelado) return;
+      setUser(sessao);
+
+      if (sessao) {
+        const doServidor = await carregarProgresso();
+        const doNavegador = await local.load();
+        if (cancelado) return;
+
+        setState(doServidor ?? freshProgress());
+
+        // Oferecer importação só quando há de fato algo local para trazer.
+        if (doNavegador && doNavegador.attempts.length > 0) {
+          const servidorVazio = (doServidor?.attempts.length ?? 0) === 0;
+          if (servidorVazio) setPendingImport(doNavegador);
+          else discardLocalProgress();
+        }
+      } else {
+        setState((await local.load()) ?? freshProgress());
+      }
+
       setReady(true);
-    });
+    })();
+
     return () => {
-      cancelled = true;
+      cancelado = true;
     };
-  }, [repository]);
+  }, [local]);
+
+  const persist = useCallback(
+    (next: ProgressState) => {
+      void repository
+        .save(next)
+        .then(() => setSaveError(null))
+        .catch((error: unknown) =>
+          setSaveError(error instanceof Error ? error.message : "Não foi possível salvar."),
+        );
+    },
+    [repository],
+  );
 
   const update = useCallback(
     (fn: (previous: ProgressState) => ProgressState) => {
       setState((previous) => {
         if (!previous) return previous;
         const next = fn(previous);
-        void repository.save(next);
+        persist(next);
         return next;
       });
     },
-    [repository],
+    [persist],
   );
 
   const reset = useCallback(() => {
     const next = freshProgress();
     setState(next);
-    void repository.save(next);
-  }, [repository]);
+    persist(next);
+  }, [persist]);
+
+  const importLocal = useCallback(() => {
+    if (!pendingImport) return;
+    setState(pendingImport);
+    persist(pendingImport);
+    discardLocalProgress();
+    setPendingImport(null);
+  }, [pendingImport, persist]);
+
+  const dismissImport = useCallback(() => {
+    discardLocalProgress();
+    setPendingImport(null);
+  }, []);
 
   const value = useMemo<ProgressContextValue>(
-    () => ({ state, ready, update, reset, storageLabel: repository.locationLabel }),
-    [state, ready, update, reset, repository.locationLabel],
+    () => ({
+      state,
+      ready,
+      user,
+      storageLabel: repository.locationLabel,
+      saveError,
+      pendingImport,
+      update,
+      reset,
+      importLocal,
+      dismissImport,
+    }),
+    [state, ready, user, repository.locationLabel, saveError, pendingImport, update, reset, importLocal, dismissImport],
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

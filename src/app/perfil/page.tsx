@@ -25,7 +25,7 @@ const INDEX = buildIndex(COURSE);
 const SKILL_INDEX = skillIndexForScore(INDEX);
 
 export default function PerfilPage() {
-  const { state, ready, reset, storageLabel } = useProgress();
+  const { state, ready, reset, storageLabel, user } = useProgress();
 
   const view = useMemo(() => {
     if (!state) return null;
@@ -228,6 +228,19 @@ export default function PerfilPage() {
             Guardados em: {storageLabel}. {totalXP(state)} XP e {state.attempts.length}{" "}
             {state.attempts.length === 1 ? "tentativa registrada" : "tentativas registradas"}.
           </p>
+          {user ? (
+            <p className="mt-2 text-sm text-ink-muted">
+              Conectado como <strong className="text-ink">{user.displayName}</strong> ({user.email}).
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-ink-muted">
+              Sem conta.{" "}
+              <Link href="/entrar" className="text-brand underline underline-offset-2">
+                Criar uma
+              </Link>{" "}
+              faz seu progresso acompanhar você entre aparelhos.
+            </p>
+          )}
           <button
             type="button"
             className="btn-ghost mt-3 border-danger/40 text-danger"

@@ -237,6 +237,8 @@ model ExerciseAttempt {
   errorCause   String?
   createdAt    DateTime @default(now())
 
+  errors       ErrorClassification[]
+
   @@index([userId, createdAt])
   @@index([userId, exerciseId])
 }
@@ -511,11 +513,18 @@ model CriticalMoment {
   skill       Skill?   @relation(fields: [skillId], references: [id], onDelete: SetNull)
 }
 
+/// Uma classificação de erro sempre pertence a algo que o usuário fez: uma tentativa
+/// de exercício ou um lance de partida. Exatamente uma das duas origens é preenchida —
+/// o schema não consegue expressar esse XOR, então o repositório o garante.
 model ErrorClassification {
   id          String   @id @default(cuid())
-  analysisId  String
-  analysis    GameAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  ply         Int
+  analysisId  String?
+  analysis    GameAnalysis? @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  attemptId   String?
+  attempt     ExerciseAttempt? @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  /// Habilidade envolvida, quando conhecida — é por ela que o gargalo é calculado.
+  skillId     String?
+  ply         Int?
   /// 13 causas — ver src/domain/errors/taxonomy.ts
   cause       String
   severity    String   // MINOR | SERIOUS | DECISIVE

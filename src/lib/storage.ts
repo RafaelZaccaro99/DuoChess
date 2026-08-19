@@ -56,8 +56,51 @@ export class LocalProgressRepository implements ProgressRepository {
   }
 }
 
+/**
+ * Adaptador de servidor.
+ *
+ * Chama as server actions, que conferem a sessão do lado do servidor. O cliente
+ * nunca informa de quem é o progresso — quem informa é o cookie assinado.
+ */
+export class RemoteProgressRepository implements ProgressRepository {
+  readonly locationLabel = "Na sua conta (sincroniza entre aparelhos)";
+
+  constructor(
+    private readonly actions: {
+      carregar(): Promise<ProgressState | null>;
+      salvar(state: ProgressState): Promise<{ ok: boolean; error?: string }>;
+    },
+  ) {}
+
+  async load(): Promise<ProgressState | null> {
+    return this.actions.carregar();
+  }
+
+  async save(state: ProgressState): Promise<void> {
+    const r = await this.actions.salvar(state);
+    // Falha de gravação não pode passar em silêncio: o usuário continuaria
+    // estudando achando que está sendo salvo.
+    if (!r.ok) throw new Error(r.error ?? "Não foi possível salvar seu progresso.");
+  }
+
+  async clear(): Promise<void> {
+    await this.actions.salvar(emptyProgress(new Date().toISOString()));
+  }
+}
+
 export function createRepository(): ProgressRepository {
   return new LocalProgressRepository();
+}
+
+/** Progresso local que ainda não foi para o servidor. */
+export function hasLocalProgress(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(STORAGE_KEY) !== null;
+}
+
+export function discardLocalProgress(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(STORAGE_KEY);
 }
 
 export function freshProgress(): ProgressState {
