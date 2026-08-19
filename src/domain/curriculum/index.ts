@@ -13,7 +13,7 @@
  * qualquer unidade impossível de começar.
  */
 
-import type { CourseDef, LeagueDef, SkillDef, UnitDef, LessonDef } from "@/content/schema";
+import type { CourseDef, ExerciseDef, LeagueDef, SkillDef, UnitDef, LessonDef } from "@/content/schema";
 import type { Competency, SkillMastery } from "../types";
 import { effectiveMastery } from "../mastery";
 
@@ -30,6 +30,12 @@ export interface CurriculumIndex {
   lessons: Map<string, LessonDef & { unitId: string; leagueId: string }>;
   /** skillId → lessonIds que treinam essa habilidade. */
   lessonsBySkill: Map<string, string[]>;
+  /**
+   * skillId → todos os exercícios que treinam a habilidade, de lição e de banco
+   * de prática. É por aqui que a revisão espaçada e a prática dirigida sacam
+   * itens: elas pensam em habilidade, não em lição.
+   */
+  exercisesBySkill: Map<string, ExerciseDef[]>;
   /** skillId → skillIds que dependem dela. */
   dependents: Map<string, string[]>;
 }
@@ -39,7 +45,14 @@ export function buildIndex(course: CourseDef): CurriculumIndex {
   const skills = new Map<string, SkillNode>();
   const lessons = new Map<string, LessonDef & { unitId: string; leagueId: string }>();
   const lessonsBySkill = new Map<string, string[]>();
+  const exercisesBySkill = new Map<string, ExerciseDef[]>();
   const dependents = new Map<string, string[]>();
+
+  const indexarExercicio = (exercise: ExerciseDef): void => {
+    for (const skillId of exercise.skillIds) {
+      exercisesBySkill.set(skillId, [...(exercisesBySkill.get(skillId) ?? []), exercise]);
+    }
+  };
 
   for (const league of course.leagues) {
     for (const unit of league.units) {
@@ -58,11 +71,23 @@ export function buildIndex(course: CourseDef): CurriculumIndex {
         for (const skillId of skillIds) {
           lessonsBySkill.set(skillId, [...(lessonsBySkill.get(skillId) ?? []), lesson.id]);
         }
+        for (const exercise of lesson.exercises) indexarExercicio(exercise);
       }
+
+      for (const exercise of unit.practice) indexarExercicio(exercise);
     }
   }
 
-  return { course, leagues: course.leagues, units, skills, lessons, lessonsBySkill, dependents };
+  return {
+    course,
+    leagues: course.leagues,
+    units,
+    skills,
+    lessons,
+    lessonsBySkill,
+    exercisesBySkill,
+    dependents,
+  };
 }
 
 export function skillIndexForScore(

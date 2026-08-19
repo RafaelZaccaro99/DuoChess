@@ -29,5 +29,11 @@ jobs:
         run: npm run content:engine
         env:
           ENGINE_DEPTH: 14
+      # O conteúdo gerado é commitado. Se regerar mudar algo, o gerador deixou de
+      # ser determinístico — e aí o diff em git vira ruído que ninguém revisa.
+      - name: Conteúdo — gerador é determinístico
+        run: |
+          npm run content:gerar
+          git diff --exit-code -- src/content/gerado/             || (echo "::error::o gerador não é determinístico: regerar mudou o conteúdo commitado" && exit 1)
       - name: Build
         run: npm run build

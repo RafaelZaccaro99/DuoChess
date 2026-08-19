@@ -153,7 +153,13 @@ export function recordAttempt(state: ProgressState, input: AttemptInput): Attemp
     const before = masteries[skillId] ?? emptyMastery(skillId);
     const after = applyAttempt(before, outcome);
     masteries[skillId] = after;
-    masteryDelta.push({ skillId, before: before.value, after: Math.round(after.value) });
+    // Os dois arredondados: `value` é float, e mostrar "25,750647999999998"
+    // na tela de feedback expõe o interno do modelo sem informar nada.
+    masteryDelta.push({
+      skillId,
+      before: Math.round(before.value),
+      after: Math.round(after.value),
+    });
   }
 
   // ── Revisão espaçada: cartão do item e cartão do conceito

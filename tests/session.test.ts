@@ -191,3 +191,27 @@ describe("efeitos colaterais de uma tentativa", () => {
     expect(effects.xpAwarded).toBe(0);
   });
 });
+
+describe("o que o feedback expõe", () => {
+  it("o delta de domínio vem arredondado nos dois lados", () => {
+    // Regressão: `before` saía como float cru e a tela mostrava
+    // "25,750647999999998", expondo o interno do modelo sem informar nada.
+    const exercise = exercisesOf("r1")[0]!;
+    let state = emptyProgress("2026-01-01T09:00:00.000Z");
+
+    for (let i = 0; i < 4; i++) {
+      const r = recordAttempt(state, {
+        exercise,
+        answer: correctAnswer(exercise),
+        hintsUsed: 0,
+        elapsedMs: 10_000,
+        at: new Date(Date.UTC(2026, 0, 2 + i, 10)).toISOString(),
+      });
+      state = r.state;
+      for (const delta of r.effects.masteryDelta) {
+        expect(Number.isInteger(delta.before), `before=${delta.before}`).toBe(true);
+        expect(Number.isInteger(delta.after), `after=${delta.after}`).toBe(true);
+      }
+    }
+  });
+});

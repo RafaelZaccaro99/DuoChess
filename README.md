@@ -32,8 +32,21 @@ Rode `npm install && npm run dev` e abra `http://localhost:3000`.
 - **Motor pedagógico completo**: domínio 0–100 com decaimento de confiança, FSRS com
   microlição por erro conceitual, motor adaptativo que interrompe o avanço na reincidência,
   taxonomia de 13 causas de erro, XP anti-farming.
-- **Liga Recruta** completa: 6 unidades, 18 habilidades, 7 lições, 20 exercícios validados
-  contra o motor de regras.
+- **Liga Recruta** completa: 6 unidades, 18 habilidades, 7 lições e **112 exercícios** —
+  20 escritos à mão e 92 gerados —, todos aprovados nos dois gates.
+- **Prática dirigida por habilidade** (`/praticar/[skillId]`), alcançável pelo cartão de
+  gargalo do mapa.
+
+### Conteúdo escrito à mão e conteúdo gerado
+
+As fases GUIADA e PROVA DE DOMÍNIO continuam escritas à mão: é onde mora o momento de
+ensino. O gerador preenche a repetição — prática independente e revisão —, que é do que a
+repetição espaçada precisa e o que faltava: antes deste sprint havia **1,67 item por
+habilidade**, então o FSRS reagendava sempre a mesma posição e o aluno decorava o tabuleiro
+em vez do padrão. Hoje o mínimo é 7.
+
+O gerador é determinístico e a saída é commitada, para que os gates rodem em CI sobre
+exatamente o que vai ao ar.
 
 ## O que ainda não existe — e é dito na interface
 
@@ -62,10 +75,11 @@ npm run prisma:seed           # semeia o currículo (o conteúdo em git é a fon
 ```bash
 npm run dev               # desenvolvimento
 npm run build             # build de produção
-npm test                  # 130 testes; os de integração pulam sem DATABASE_URL
+npm test                  # 152 testes; os de integração pulam sem DATABASE_URL
 npm run typecheck         # TypeScript estrito
 npm run content:validate  # gate SOURCE_REVIEW + regras: FEN, legalidade, gabarito, fontes
 npm run content:engine    # gate ENGINE_REVIEW: unicidade da solução, erro que erra mesmo
+npm run content:gerar     # regera o banco de prática (determinístico; a saída é commitada)
 ```
 
 ## Estrutura

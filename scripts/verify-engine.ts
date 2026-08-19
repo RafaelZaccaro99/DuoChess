@@ -97,8 +97,13 @@ async function main(): Promise<void> {
 
   for (const league of COURSE.leagues) {
     for (const unit of league.units) {
-      for (const lesson of unit.lessons) {
-        for (const exercise of lesson.exercises) {
+      // Lição E banco de prática. O gerador já verifica na saída, mas o CI
+      // confere de novo: gerador com defeito é possível, e conteúdo gerado não
+      // pode ter gate mais frouxo que conteúdo escrito à mão.
+      const todos = [...unit.lessons.flatMap((l) => l.exercises), ...unit.practice];
+
+      {
+        for (const exercise of todos) {
           if (!TIPOS_DE_LANCE.has(exercise.type)) continue;
           if (!("moves" in exercise.acceptedAnswer)) continue;
 

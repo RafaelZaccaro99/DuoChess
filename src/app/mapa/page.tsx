@@ -14,17 +14,41 @@ import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
 import { COURSE } from "@/content";
-import { buildIndex, nextStep, skillIndexForScore, unitProgress } from "@/domain/curriculum";
+import { buildIndex, nextStep, skillIndexForScore, skillStatus, unitProgress } from "@/domain/curriculum";
 import { masteryMap, masteryList } from "@/domain/session";
 import { computeChessScore } from "@/domain/score/chess-score";
 import { planSession } from "@/domain/adaptive";
 import { dueQueue } from "@/domain/srs";
-import { COMPETENCY_LABELS } from "@/domain/types";
+import { COMPETENCY_LABELS, type SkillMastery } from "@/domain/types";
 import { ERROR_TAXONOMY } from "@/domain/errors/taxonomy";
 import { cn } from "@/lib/cn";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_INDEX = skillIndexForScore(INDEX);
+
+/**
+ * A habilidade mais fraca entre as disponíveis, com itens de prática.
+ *
+ * O gargalo do Chess Score aponta uma COMPETÊNCIA; a prática precisa de uma
+ * habilidade concreta. Sem esta tradução, o cartão de gargalo continuaria sendo
+ * um diagnóstico sem ação.
+ */
+function habilidadeParaTreinar(
+  masteries: ReadonlyMap<string, SkillMastery>,
+  nowIso: string,
+): { id: string; title: string; mastery: number } | null {
+  const status = skillStatus(INDEX, masteries, nowIso);
+  const unidades = new Map(unitProgress(INDEX, masteries, nowIso).map((u) => [u.unitId, u]));
+
+  const candidatas = [...INDEX.skills.values()]
+    .filter((s) => status.get(s.id)?.availability !== "LOCKED")
+    .filter((s) => unidades.get(s.unitId)?.availability !== "LOCKED")
+    .filter((s) => (INDEX.exercisesBySkill.get(s.id)?.length ?? 0) > 0)
+    .map((s) => ({ id: s.id, title: s.title, mastery: status.get(s.id)?.mastery ?? 0 }))
+    .sort((a, b) => a.mastery - b.mastery);
+
+  return candidatas[0] ?? null;
+}
 
 export default function MapaPage() {
   const { state, ready, storageLabel, pendingImport, importLocal, dismissImport } = useProgress();
@@ -39,6 +63,7 @@ export default function MapaPage() {
       units: unitProgress(INDEX, masteries, now),
       score: computeChessScore(masteryList(state), SKILL_INDEX, now),
       next: nextStep(INDEX, masteries, now),
+      treinar: habilidadeParaTreinar(masteries, now),
       due: dueQueue(Object.values(state.reviewCards), now),
       plan: planSession({
         index: INDEX,
@@ -233,9 +258,16 @@ export default function MapaPage() {
               <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
                 {view.next.unitTitle} — é a unidade desbloqueada com menor domínio.
               </p>
-              <Link href={`/licao/${view.next.lessonId}`} className="btn-ghost mt-3">
-                Ir para a lição
-              </Link>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href={`/licao/${view.next.lessonId}`} className="btn-ghost">
+                  Ir para a lição
+                </Link>
+                {view.treinar && (
+                  <Link href={`/praticar/${view.treinar.id}`} className="btn-primary">
+                    Treinar {view.treinar.title.toLowerCase()}
+                  </Link>
+                )}
+              </div>
             </div>
           )}
         </section>

@@ -216,3 +216,40 @@ describe("calibração só avisa na direção que informa", () => {
     expect(blocks(achados)).toBe(false);
   });
 });
+
+describe("o gate não grita lobo", () => {
+  /**
+   * Regressão: itens de "mate em 1" gerados recebiam aviso dizendo que o
+   * enunciado deveria pedir "o lance mais forte" — mas ele já pedia mate em 1,
+   * e uma alternativa que mata em 2 não é resposta à pergunta feita.
+   * Gate que avisa à toa passa a ser ignorado.
+   */
+  it("enunciado que promete mate em N não recebe aviso por alternativa mais lenta", () => {
+    const achados = verifyMoveExercise({
+      acceptedUci: ["a7h7"],
+      predictableUci: [],
+      lines: [linha("a7h7", { mate: 1 }), linha("a7e3", { mate: 2 })],
+      claimsMateIn: 1,
+    });
+    expect(achados).toEqual([]);
+  });
+
+  it("mas ainda bloqueia quando a alternativa mata mais rápido que o gabarito", () => {
+    const achados = verifyMoveExercise({
+      acceptedUci: ["a7e3"],
+      predictableUci: [],
+      lines: [linha("a7e3", { mate: 3 }), linha("a7h7", { mate: 1 })],
+      claimsMateIn: 3,
+    });
+    expect(blocks(achados)).toBe(true);
+  });
+
+  it("sem promessa de mate, a preferência continua sendo avisada", () => {
+    const achados = verifyMoveExercise({
+      acceptedUci: ["e7e8q"],
+      predictableUci: [],
+      lines: [linha("e7e8q", { mate: 4 }), linha("e7e8n", { mate: 12 })],
+    });
+    expect(achados.map((f) => f.code)).toContain("SOLUCAO_UNICA_E_PREFERENCIA");
+  });
+});

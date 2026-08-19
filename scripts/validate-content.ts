@@ -96,10 +96,24 @@ function checkExercise(exercise: ExerciseDef, where: string, knownSkills: Set<st
   }
   seenSlugs.add(exercise.slug);
 
-  const key = `${exercise.fen}::${exercise.type}`;
+  // Duplicata é mesmo tipo, mesma posição, mesma pergunta E mesma resposta.
+  //
+  // Comparar só FEN e tipo estava errado: itens de cor da casa, de orientação e
+  // de valor das peças usam todos a posição inicial, porque a posição não é o
+  // assunto deles — a pergunta é. A regra antiga precisava de uma exceção para
+  // SQUARE_COLOR justamente por isso, e a exceção não cobria os outros casos.
+  const key = [
+    exercise.type,
+    exercise.fen,
+    exercise.prompt,
+    JSON.stringify(exercise.acceptedAnswer),
+  ].join("::");
   const previous = seenFenType.get(key);
-  if (previous && previous !== exercise.slug && exercise.type !== "SQUARE_COLOR") {
-    problems.push({ where, message: `mesma FEN e mesmo tipo que ${previous} — possível duplicata` });
+  if (previous && previous !== exercise.slug) {
+    problems.push({
+      where,
+      message: `mesma posição, mesma pergunta e mesma resposta que ${previous} — duplicata`,
+    });
   }
   seenFenType.set(key, exercise.slug);
 }
@@ -134,10 +148,7 @@ function checkSources(index: ReturnType<typeof buildIndex>): void {
     }
 
     // Nível da habilidade: o menor ratingHint entre os exercícios que a treinam.
-    const ratings = [...index.lessons.values()]
-      .flatMap((l) => l.exercises)
-      .filter((e) => e.skillIds.includes(skill.id))
-      .map((e) => e.ratingHint);
+    const ratings = (index.exercisesBySkill.get(skill.id) ?? []).map((e) => e.ratingHint);
     if (ratings.length === 0) continue;
     const nivel = Math.min(...ratings);
 
@@ -150,15 +161,17 @@ function checkSources(index: ReturnType<typeof buildIndex>): void {
   }
 
   // Exercícios podem citar fontes próprias; elas também precisam existir.
-  for (const lesson of index.lessons.values()) {
-    for (const exercise of lesson.exercises) {
-      const desconhecidas = exercise.sources.filter((id) => !SOURCE_IDS.has(id));
-      if (desconhecidas.length > 0) {
-        problems.push({
-          where: `exercício ${exercise.slug}`,
-          message: `fonte fora do registro: ${desconhecidas.join(", ")}`,
-        });
-      }
+  const todosOsExercicios = [
+    ...[...index.lessons.values()].flatMap((l) => l.exercises),
+    ...[...index.units.values()].flatMap((u) => u.practice),
+  ];
+  for (const exercise of todosOsExercicios) {
+    const desconhecidas = exercise.sources.filter((id) => !SOURCE_IDS.has(id));
+    if (desconhecidas.length > 0) {
+      problems.push({
+        where: `exercício ${exercise.slug}`,
+        message: `fonte fora do registro: ${desconhecidas.join(", ")}`,
+      });
     }
   }
 }
@@ -196,6 +209,27 @@ function main(): void {
           checkExercise(exercise, `${league.id}/${unit.id}/${lesson.id}/${exercise.slug}`, knownSkills);
         }
       }
+
+      // O banco de prática passa exatamente pelas mesmas checagens. Conteúdo
+      // gerado não recebe tratamento mais frouxo que conteúdo escrito à mão.
+      for (const exercise of unit.practice) {
+        checkExercise(exercise, `${league.id}/${unit.id}/prática/${exercise.slug}`, knownSkills);
+      }
+    }
+  }
+
+  // Meta desta fase: a repetição espaçada precisa de itens diferentes para
+  // reagendar. Com um item por habilidade, o aluno decora a posição.
+  const MINIMO_POR_HABILIDADE = 6;
+  for (const skill of index.skills.values()) {
+    const liga = COURSE.leagues.find((l) => l.id === skill.leagueId);
+    if (!liga || liga.units.length === 0) continue; // liga sem conteúdo publicado
+    const quantos = index.exercisesBySkill.get(skill.id)?.length ?? 0;
+    if (quantos < MINIMO_POR_HABILIDADE) {
+      problems.push({
+        where: `skill ${skill.id}`,
+        message: `só ${quantos} item(ns); a revisão espaçada precisa de ao menos ${MINIMO_POR_HABILIDADE} para não reagendar sempre a mesma posição.`,
+      });
     }
   }
 
@@ -208,6 +242,7 @@ function main(): void {
     );
     console.log("  ENGINE_REVIEW: FEN, legalidade, gabarito e erros previsíveis conferidos.");
     console.log("  SOURCE_REVIEW: toda habilidade ancorada em fonte existente, coerente e de nível adequado.");
+    console.log(`  COBERTURA: toda habilidade publicada com ao menos ${MINIMO_POR_HABILIDADE} itens.`);
     return;
   }
 

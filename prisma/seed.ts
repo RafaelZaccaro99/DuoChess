@@ -24,6 +24,7 @@ async function main(): Promise<void> {
   let skills = 0;
   let lessons = 0;
   let exercises = 0;
+  let pratica = 0;
 
   for (const league of COURSE.leagues) {
     await prisma.world.upsert({
@@ -99,6 +100,50 @@ async function main(): Promise<void> {
         }
       }
 
+      // Uma função só para lição e prática: item gerado vai para o banco com o
+      // mesmo formato do escrito à mão, porque para o aluno não há diferença.
+      const semearExercicio = async (
+        exercise: (typeof unit.lessons)[number]["exercises"][number],
+        lessonId: string | null,
+      ): Promise<void> => {
+        const data = {
+          lessonId,
+          phase: exercise.phase,
+          type: exercise.type,
+          prompt: exercise.prompt,
+          fen: exercise.fen,
+          pgn: exercise.pgn ?? null,
+          sideToMove: exercise.sideToMove,
+          difficulty: exercise.difficulty,
+          ratingHint: exercise.ratingHint,
+          acceptedAnswers: exercise.acceptedAnswer,
+          predictableErrors: exercise.predictableErrors,
+          explanation: JSON.stringify(exercise.explanation),
+          hint1: exercise.hints[0],
+          hint2: exercise.hints[1],
+          hint3: exercise.hints[2],
+          tags: exercise.tags ?? [],
+          expectedSeconds: exercise.expectedSeconds,
+          points: exercise.points,
+          reviewState: "PUBLISHED",
+        };
+
+        await prisma.exercise.upsert({
+          where: { id: exercise.slug },
+          update: data,
+          create: { id: exercise.slug, slug: exercise.slug, ...data },
+        });
+
+        for (const skillId of exercise.skillIds) {
+          await prisma.exerciseSkill.upsert({
+            where: { exerciseId_skillId: { exerciseId: exercise.slug, skillId } },
+            update: {},
+            create: { exerciseId: exercise.slug, skillId },
+          });
+        }
+        exercises += 1;
+      };
+
       for (const [lessonIndex, lesson] of unit.lessons.entries()) {
         await prisma.lesson.upsert({
           where: { id: lesson.id },
@@ -116,50 +161,21 @@ async function main(): Promise<void> {
         lessons += 1;
 
         for (const exercise of lesson.exercises) {
-          const data = {
-            lessonId: lesson.id,
-            phase: exercise.phase,
-            type: exercise.type,
-            prompt: exercise.prompt,
-            fen: exercise.fen,
-            pgn: exercise.pgn ?? null,
-            sideToMove: exercise.sideToMove,
-            difficulty: exercise.difficulty,
-            ratingHint: exercise.ratingHint,
-            acceptedAnswers: exercise.acceptedAnswer,
-            predictableErrors: exercise.predictableErrors,
-            explanation: JSON.stringify(exercise.explanation),
-            hint1: exercise.hints[0],
-            hint2: exercise.hints[1],
-            hint3: exercise.hints[2],
-            tags: exercise.tags ?? [],
-            expectedSeconds: exercise.expectedSeconds,
-            points: exercise.points,
-            // O conteúdo em git já passou pelos dois gates em CI.
-            reviewState: "PUBLISHED",
-          };
-
-          await prisma.exercise.upsert({
-            where: { id: exercise.slug },
-            update: data,
-            create: { id: exercise.slug, slug: exercise.slug, ...data },
-          });
-
-          for (const skillId of exercise.skillIds) {
-            await prisma.exerciseSkill.upsert({
-              where: { exerciseId_skillId: { exerciseId: exercise.slug, skillId } },
-              update: {},
-              create: { exerciseId: exercise.slug, skillId },
-            });
-          }
-          exercises += 1;
+          await semearExercicio(exercise, lesson.id);
         }
+      }
+
+      // Banco de prática: sem lição associada, sacado por habilidade.
+      for (const exercise of unit.practice) {
+        await semearExercicio(exercise, null);
+        pratica += 1;
       }
     }
   }
 
   console.log(
-    `Currículo semeado: ${COURSE.leagues.length} ligas, ${skills} habilidades, ${lessons} lições, ${exercises} exercícios.`,
+    `Currículo semeado: ${COURSE.leagues.length} ligas, ${skills} habilidades, ${lessons} lições, ` +
+      `${exercises} exercícios (${pratica} de prática).`,
   );
 }
 

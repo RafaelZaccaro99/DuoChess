@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "content:validate": "tsx scripts/validate-content.ts",
     "content:engine": "tsx scripts/verify-engine.ts",
+    "content:gerar": "tsx scripts/gerar-conteudo.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts"

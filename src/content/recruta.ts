@@ -10,6 +10,7 @@
  */
 
 import type { LeagueInput } from "./schema";
+import { PRATICA_RECRUTA } from "./gerado/recruta-pratica";
 import { START_FEN } from "@/domain/chess/board";
 
 export const RECRUTA: LeagueInput = {
@@ -58,6 +59,7 @@ export const RECRUTA: LeagueInput = {
           minPrerequisiteMastery: 60,
         },
       ],
+      practice: [...(PRATICA_RECRUTA["r1"] ?? []), ...(PRATICA_RECRUTA["r1b"] ?? []),],
       lessons: [
         {
           id: "r1.l1",
@@ -275,6 +277,7 @@ export const RECRUTA: LeagueInput = {
           minPrerequisiteMastery: 55,
         },
       ],
+      practice: [...(PRATICA_RECRUTA["r2a"] ?? []), ...(PRATICA_RECRUTA["r2b"] ?? []), ...(PRATICA_RECRUTA["r2c"] ?? []),],
       lessons: [
         {
           id: "r2.l1",
@@ -486,6 +489,7 @@ export const RECRUTA: LeagueInput = {
           minPrerequisiteMastery: 50,
         },
       ],
+      practice: [...(PRATICA_RECRUTA["r3"] ?? []),],
       lessons: [
         {
           id: "r3.l1",
@@ -676,6 +680,7 @@ export const RECRUTA: LeagueInput = {
           minPrerequisiteMastery: 55,
         },
       ],
+      practice: [...(PRATICA_RECRUTA["r4a"] ?? []), ...(PRATICA_RECRUTA["r4b"] ?? []),],
       lessons: [
         {
           id: "r4.l1",
@@ -859,6 +864,7 @@ export const RECRUTA: LeagueInput = {
           minPrerequisiteMastery: 55,
         },
       ],
+      practice: [...(PRATICA_RECRUTA["r5a"] ?? []), ...(PRATICA_RECRUTA["r5b"] ?? []), ...(PRATICA_RECRUTA["r5c"] ?? []),],
       lessons: [
         {
           id: "r5.l1",
@@ -1067,6 +1073,7 @@ export const RECRUTA: LeagueInput = {
           minPrerequisiteMastery: 55,
         },
       ],
+      practice: [...(PRATICA_RECRUTA["r6"] ?? []), ...(PRATICA_RECRUTA["r6a"] ?? []), ...(PRATICA_RECRUTA["r6b"] ?? []), ...(PRATICA_RECRUTA["r6c"] ?? []),],
       lessons: [
         {
           id: "r6.l1",

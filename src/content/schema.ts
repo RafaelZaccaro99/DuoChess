@@ -190,6 +190,17 @@ export const unitSchema = z.object({
   masteryTest: z.string().min(10),
   skills: z.array(skillSchema).min(1),
   lessons: z.array(lessonSchema).min(1),
+  /**
+   * Banco de prática: itens que NÃO pertencem ao fluxo de cinco fases da lição.
+   *
+   * Existe porque empilhar trinta exercícios dentro de uma lição quebraria o
+   * modelo pedagógico. A lição ensina; o banco dá repetição — que é exatamente
+   * do que a revisão espaçada precisa e o que faltava (1,67 item por habilidade
+   * significa reagendar sempre a mesma posição).
+   *
+   * O motor adaptativo e a fila de revisão sacam daqui por habilidade.
+   */
+  practice: z.array(exerciseSchema).default([]),
 });
 
 export type UnitDef = z.infer<typeof unitSchema>;

@@ -129,7 +129,15 @@ export function verifyMoveExercise(input: VerificationInput): Finding[] {
         segunda.mate !== undefined &&
         segunda.mate > 0;
 
-      if (ambosDaoMate) {
+      // O enunciado que promete mate em N já discrimina sozinho: uma alternativa
+      // que mata em N+1 não é resposta à pergunta feita. Avisar aqui seria o
+      // gate gritando lobo — e gate que grita lobo passa a ser ignorado.
+      const enunciadoJaDiscrimina =
+        input.claimsMateIn !== undefined &&
+        melhorAceita.mate === input.claimsMateIn &&
+        (segunda.mate === undefined || segunda.mate > input.claimsMateIn);
+
+      if (ambosDaoMate && !enunciadoJaDiscrimina) {
         // Mesma armadilha de escala do bloco de erros previsíveis: mate em 4 e
         // mate em 12 distam 8 pontos, o que passaria por "praticamente igual".
         // Objetivamente as duas ganham; o item ensina PREFERÊNCIA, não solução
@@ -147,7 +155,11 @@ export function verifyMoveExercise(input: VerificationInput): Finding[] {
             message: `o item aceita só ${melhorAceita.moveUci} (mate em ${melhorAceita.mate}), mas ${segunda.moveUci} também ganha (mate em ${segunda.mate}). O enunciado precisa pedir o lance mais forte, não "o único".`,
           });
         }
-      } else if (scoreOf(melhorAceita) - scoreOf(segunda) < MARGEM_UNICIDADE) {
+      } else if (
+        !enunciadoJaDiscrimina &&
+        !ambosDaoMate &&
+        scoreOf(melhorAceita) - scoreOf(segunda) < MARGEM_UNICIDADE
+      ) {
         findings.push({
           severity: "BLOQUEIA",
           code: "SOLUCAO_NAO_E_UNICA",
