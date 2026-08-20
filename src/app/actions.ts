@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import {
   createSession,
+  currentAdmin,
   currentUser,
   destroySession,
   hashPassword,
@@ -23,6 +24,8 @@ import { loadProgress, saveDiagnostic, saveProgress, type DiagnosticResultPayloa
 import type { EntryPoint, OnboardingAnswers, ProgressState } from "@/domain/session";
 import * as jogos from "@/lib/games-server";
 import type { BotRating } from "@/domain/game/bot";
+import * as conteudo from "@/lib/content-server";
+import type { ExerciseDef, ExerciseInput } from "@/content/schema";
 
 export interface ActionResult {
   ok: boolean;
@@ -209,4 +212,53 @@ export async function finalizarAnalise(
   const user = await currentUser();
   if (!user) return SEM_SESSAO;
   return jogos.finalizeAnalysis(user.id, analysisId, extra);
+}
+
+// ────────────────────────────────────────────────── CMS (A7)
+
+const NAO_ADMIN = { ok: false as const, error: "Esta ação exige conta de administrador." };
+
+export async function salvarRascunhoDeExercicio(
+  input: ExerciseInput,
+  exerciseId?: string,
+): Promise<{ exerciseId: string; reviewState: "DRAFT" } | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.salvarRascunho(admin.id, input, exerciseId);
+}
+
+export async function verificarRascunhoDeExercicio(
+  input: ExerciseInput,
+): Promise<conteudo.PublishFinding[] | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.verificarRascunho(input);
+}
+
+export async function publicarExercicioAction(exerciseId: string): Promise<conteudo.PublishResult | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.publicarExercicio(admin.id, exerciseId);
+}
+
+export async function listarExerciciosAutorados(): Promise<conteudo.AuthoredExerciseSummary[] | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.listAuthoredExercises();
+}
+
+export async function exercicioAutoradoPorId(exerciseId: string): Promise<ExerciseDef | null | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.getAuthoredExercise(exerciseId);
+}
+
+/** Leitura pública, sem checagem de admin — é o que /praticar consome. */
+export async function exerciciosPublicadosPara(skillId: string): Promise<ExerciseDef[]> {
+  return conteudo.publishedExercisesForSkill(skillId);
+}
+
+/** Leitura pública, sem checagem de admin — /sessão e /revisão sacam de várias habilidades de uma vez. */
+export async function exerciciosPublicadosTodos(): Promise<ExerciseDef[]> {
+  return conteudo.publishedExercises();
 }

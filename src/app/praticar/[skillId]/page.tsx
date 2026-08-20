@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
@@ -21,8 +21,11 @@ import { useExecutorDeExercicios } from "@/components/exercicio/useExecutorDeExe
 import { Fontes } from "@/components/lesson/Fontes";
 import { COURSE } from "@/content";
 import { buildIndex } from "@/domain/curriculum";
+import { mergeExercises } from "@/domain/curriculum/merge";
 import { effectiveMastery } from "@/domain/mastery";
 import { MASTERY_STATE_LABELS } from "@/domain/types";
+import { exerciciosPublicadosPara } from "@/app/actions";
+import type { ExerciseDef } from "@/content/schema";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_TITLES = Object.fromEntries([...INDEX.skills.values()].map((s) => [s.id, s.title]));
@@ -36,6 +39,15 @@ export default function PraticarPage() {
   const { state, ready } = useProgress();
 
   const skill = INDEX.skills.get(decodeURIComponent(params.skillId));
+
+  // Exercícios publicados via CMS (A7) — sem eles, "publicar sem deploy" seria
+  // só verdade no banco, nunca na tela que o aluno vê.
+  const [cms, setCms] = useState<ExerciseDef[]>([]);
+  useEffect(() => {
+    if (!skill) return;
+    exerciciosPublicadosPara(skill.id).then(setCms);
+  }, [skill]);
+  const index = useMemo(() => mergeExercises(INDEX, cms), [cms]);
 
   /**
    * Menos tentados primeiro, e entre empatados os do banco de prática.
@@ -51,7 +63,7 @@ export default function PraticarPage() {
       tentativasPor.set(a.exerciseSlug, (tentativasPor.get(a.exerciseSlug) ?? 0) + 1);
     }
 
-    return [...(INDEX.exercisesBySkill.get(skill.id) ?? [])]
+    return [...(index.exercisesBySkill.get(skill.id) ?? [])]
       .sort((a, b) => {
         const ta = tentativasPor.get(a.slug) ?? 0;
         const tb = tentativasPor.get(b.slug) ?? 0;
@@ -62,7 +74,7 @@ export default function PraticarPage() {
         return a.difficulty - b.difficulty;
       })
       .slice(0, ITENS_POR_RODADA);
-  }, [skill, state]);
+  }, [skill, state, index]);
 
   const executor = useExecutorDeExercicios({ itens });
 

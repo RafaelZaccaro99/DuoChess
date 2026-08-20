@@ -13,7 +13,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
@@ -23,7 +23,10 @@ import { Microlicao } from "@/components/exercicio/Microlicao";
 import { useCongelado } from "@/components/exercicio/useCongelado";
 import { COURSE } from "@/content";
 import { buildIndex, skillIndexForScore } from "@/domain/curriculum";
+import { mergeExercises } from "@/domain/curriculum/merge";
 import { planSession } from "@/domain/adaptive";
+import { exerciciosPublicadosTodos } from "@/app/actions";
+import type { ExerciseDef } from "@/content/schema";
 import { resolverSessao, type ItemDaSessao } from "@/domain/adaptive/resolver";
 import { montarMicrolicao, type Microlicao as MicrolicaoDef } from "@/domain/adaptive/microlicao";
 import { computeChessScore } from "@/domain/score/chess-score";
@@ -48,19 +51,27 @@ export default function SessaoPage() {
   const { state, ready, update } = useProgress();
   const [microlicao, setMicrolicao] = useState<MicrolicaoDef | null>(null);
 
+  // Exercícios publicados via CMS (A7) — sacados antes de montar o índice que o
+  // motor adaptativo usa, senão "publicar sem deploy" nunca chegaria à sessão.
+  const [cms, setCms] = useState<ExerciseDef[] | null>(null);
+  useEffect(() => {
+    exerciciosPublicadosTodos().then(setCms);
+  }, []);
+
   /**
    * A sessão é montada UMA vez e congelada.
    *
    * Recalcular a cada resposta mudaria os itens debaixo do aluno: acertar move o
    * domínio, o que move o gargalo, o que reordenaria a sessão em andamento.
    */
-  const plano = useCongelado(ready && state !== null, () => {
-    if (!state) return null;
+  const plano = useCongelado(ready && state !== null && cms !== null, () => {
+    if (!state || !cms) return null;
     const now = new Date().toISOString();
     const masteries = masteryMap(state);
+    const index = mergeExercises(INDEX, cms);
 
     const plan = planSession({
-      index: INDEX,
+      index,
       masteries,
       reviewCards: Object.values(state.reviewCards),
       errors: state.errors,
@@ -69,7 +80,7 @@ export default function SessaoPage() {
     });
 
     const resolvida = resolverSessao({
-      index: INDEX,
+      index,
       slots: plan.slots,
       masteries,
       attempts: state.attempts,

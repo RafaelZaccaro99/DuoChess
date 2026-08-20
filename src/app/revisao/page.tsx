@@ -12,7 +12,7 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
@@ -21,9 +21,12 @@ import { useExecutorDeExercicios } from "@/components/exercicio/useExecutorDeExe
 import { useCongelado } from "@/components/exercicio/useCongelado";
 import { COURSE } from "@/content";
 import { buildIndex } from "@/domain/curriculum";
+import { mergeExercises } from "@/domain/curriculum/merge";
 import { resolverRevisao } from "@/domain/adaptive/resolver";
 import { DEFAULT_FSRS, dueQueue, retrievability } from "@/domain/srs";
 import { daysBetween } from "@/domain/types";
+import { exerciciosPublicadosTodos } from "@/app/actions";
+import type { ExerciseDef } from "@/content/schema";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_TITLES = Object.fromEntries([...INDEX.skills.values()].map((s) => [s.id, s.title]));
@@ -31,20 +34,28 @@ const SKILL_TITLES = Object.fromEntries([...INDEX.skills.values()].map((s) => [s
 export default function RevisaoPage() {
   const { state, ready } = useProgress();
 
+  // Exercícios publicados via CMS (A7) — mesma lógica de /sessao: sacados antes
+  // de montar o índice que o resolvedor de revisão usa.
+  const [cms, setCms] = useState<ExerciseDef[] | null>(null);
+  useEffect(() => {
+    exerciciosPublicadosTodos().then(setCms);
+  }, []);
+
   /**
    * A fila é congelada na entrada.
    *
    * Responder um item reagenda o cartão, o que o tiraria da fila no meio da
    * sessão e faria os itens dançarem debaixo do aluno.
    */
-  const fila = useCongelado(ready && state !== null, () => {
-    if (!state) return null;
+  const fila = useCongelado(ready && state !== null && cms !== null, () => {
+    if (!state || !cms) return null;
     const now = new Date().toISOString();
     const cartoes = Object.values(state.reviewCards);
     const vencidos = dueQueue(cartoes, now);
+    const index = mergeExercises(INDEX, cms);
 
     const { itens, semItem } = resolverRevisao({
-      index: INDEX,
+      index,
       cardIds: vencidos.map((c) => c.id),
       attempts: state.attempts,
     });

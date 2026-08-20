@@ -22,6 +22,8 @@ model User {
   displayName   String
   locale        String    @default("pt-BR")
   isMinor       Boolean   @default(false)
+  /// STUDENT | ADMIN — promovido fora do app, ver scripts/promote-admin.ts
+  role          String    @default("STUDENT")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -195,7 +197,14 @@ model Exercise {
   tags              String[]
   expectedSeconds   Int
   points            Int
-  reviewState       String   @default("DRAFT") // DRAFT CHESS_REVIEW PEDAGOGY_REVIEW AUTO_TEST PUBLISHED MONITORING
+  /// Ver REVIEW_STATES em src/content/schema.ts — DRAFT, ENGINE_REVIEW, SOURCE_REVIEW,
+  /// PEDAGOGY_REVIEW, PUBLISHED, MONITORING, CONTESTED. Conteúdo de CMS só usa DRAFT/PUBLISHED (A7).
+  reviewState       String   @default("DRAFT")
+  /// marks/sources/verification de exerciseSchema — sem eles rowToExerciseDef não
+  /// reconstrói um ExerciseDef fiel (ver src/lib/content-server.ts).
+  marksJson         Json     @default("[]")
+  sourcesJson       Json     @default("[]")
+  verification      String   @default("BEST") // BEST | RULE_EXECUTION
   authorId          String?
   author            User?    @relation("exerciseAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   createdAt         DateTime @default(now())
@@ -673,7 +682,7 @@ model ContentReview {
   exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   reviewerId  String
   reviewer    User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
-  /// CHESS_REVIEW | PEDAGOGY_REVIEW | AUTO_TEST
+  /// SOURCE_REVIEW | ENGINE_REVIEW
   stage       String
   approved    Boolean
   notes       String?

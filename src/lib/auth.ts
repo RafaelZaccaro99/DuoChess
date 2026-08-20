@@ -31,6 +31,7 @@ export interface SessionUser {
   id: string;
   email: string;
   displayName: string;
+  role: string;
 }
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -73,12 +74,18 @@ export async function currentUser(): Promise<SessionUser | null> {
 
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, displayName: true },
+      select: { id: true, email: true, displayName: true, role: true },
     });
     return user;
   } catch {
     return null; // expirado, adulterado ou segredo trocado
   }
+}
+
+/** Como currentUser(), mas null também quando o papel não é ADMIN. Nunca lança. */
+export async function currentAdmin(): Promise<SessionUser | null> {
+  const user = await currentUser();
+  return user && user.role === "ADMIN" ? user : null;
 }
 
 export function normalizeEmail(email: string): string {
