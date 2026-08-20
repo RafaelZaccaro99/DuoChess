@@ -329,3 +329,23 @@ export async function resolverContestacaoAction(
 export async function slugsContestados(): Promise<string[]> {
   return [...(await conteudo.excludedSlugs())];
 }
+
+// ────────────────────────────────────────────────── auditoria por amostragem (A8.5)
+
+export async function sortearAmostraAction(porcentagem = 5): Promise<conteudo.AuditSampleItem[] | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.sortearAmostra(porcentagem);
+}
+
+export async function salvarAuditoriaAction(itens: conteudo.AuditRecordInput[]): Promise<ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.salvarAuditoriaAmostragem(admin.id, itens);
+}
+
+export async function historicoDeAuditoriasAction(): Promise<conteudo.AuditRecordSummary[] | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.historicoDeAuditorias();
+}

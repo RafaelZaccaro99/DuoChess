@@ -18,7 +18,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "admin:promote": "tsx scripts/promote-admin.ts"
+    "admin:promote": "tsx scripts/promote-admin.ts",
+    "auditoria:amostragem": "tsx scripts/auditoria-amostragem.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

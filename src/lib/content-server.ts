@@ -24,6 +24,8 @@ import {
 } from "@/domain/content/gates";
 import type { Finding } from "@/domain/chess/verification";
 import { buildIndex } from "@/domain/curriculum";
+import { amostrarConteudo, type AuditSampleItem } from "@/domain/content/audit-sample";
+export type { AuditSampleItem } from "@/domain/content/audit-sample";
 import { COURSE } from "@/content";
 import { exerciseSchema, type ExerciseDef, type ExerciseInput } from "@/content/schema";
 
@@ -407,4 +409,75 @@ export async function excludedSlugs(): Promise<Set<string>> {
     select: { slug: true },
   });
   return new Set(rows.map((r) => r.slug));
+}
+
+// ────────────────────────────────────────────── auditoria por amostragem (A8.5)
+
+/** Sorteia ~porcentagem% do acervo publicado — mesma lógica do CLI `auditoria:amostragem`. */
+export function sortearAmostra(porcentagem: number): AuditSampleItem[] {
+  return amostrarConteudo(COURSE, INDEX, porcentagem);
+}
+
+export interface AuditRecordInput {
+  slug: string;
+  outcome: "OK" | "FLAGGED";
+  notes: string;
+}
+
+/**
+ * Grava o resultado de uma rodada de auditoria de uma vez — um registro por
+ * item sorteado. Item estático some do acervo publicado (§0) mas continua
+ * existindo como espelho em `Exercise` (é assim que `contestarExercicio`
+ * também resolve por slug), então o lookup funciona igual pros dois casos.
+ */
+export async function salvarAuditoriaAmostragem(
+  auditorId: string,
+  itens: AuditRecordInput[],
+): Promise<{ ok: boolean; error?: string }> {
+  const exercicios = await prisma.exercise.findMany({
+    where: { slug: { in: itens.map((i) => i.slug) } },
+    select: { id: true, slug: true },
+  });
+  const idPorSlug = new Map(exercicios.map((e) => [e.slug, e.id]));
+
+  const faltando = itens.filter((i) => !idPorSlug.has(i.slug));
+  if (faltando.length > 0) {
+    return { ok: false, error: `Exercício não encontrado: ${faltando.map((i) => i.slug).join(", ")}` };
+  }
+
+  await prisma.sampleAuditRecord.createMany({
+    data: itens.map((i) => ({
+      exerciseId: idPorSlug.get(i.slug)!,
+      auditorId,
+      outcome: i.outcome,
+      notes: i.notes,
+    })),
+  });
+  return { ok: true };
+}
+
+export interface AuditRecordSummary {
+  id: string;
+  exerciseSlug: string;
+  auditedAt: string;
+  auditorName: string;
+  outcome: string;
+  notes: string | null;
+}
+
+/** Últimos registros — só pra tela provar que a auditoria persistiu. */
+export async function historicoDeAuditorias(limit = 20): Promise<AuditRecordSummary[]> {
+  const rows = await prisma.sampleAuditRecord.findMany({
+    include: { exercise: true, auditor: true },
+    orderBy: { auditedAt: "desc" },
+    take: limit,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    exerciseSlug: r.exercise.slug,
+    auditedAt: r.auditedAt.toISOString(),
+    auditorName: r.auditor.displayName,
+    outcome: r.outcome,
+    notes: r.notes,
+  }));
 }

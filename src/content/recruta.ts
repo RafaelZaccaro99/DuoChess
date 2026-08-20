@@ -938,16 +938,16 @@ export const RECRUTA: LeagueInput = {
               acceptedAnswer: { moves: ["Ta8#"] },
               predictableErrors: [
                 {
-                  answer: "Th8+",
-                  cause: "CALCULATION_STOPPED",
+                  answer: "Txh7",
+                  cause: "CANDIDATE_IGNORED",
                   explanation:
-                    "Th8+ é xeque, mas o rei simplesmente captura: Rxh8. A torre de h8 está indefesa. Xeque não é sinônimo de mate.",
+                    "Txh7 captura um peão, mas não é xeque — o rei preto continua livre em g8. Mate em 1 pede o lance que ataca o rei, não o que parece mais produtivo.",
                 },
                 {
-                  answer: "Te8+",
+                  answer: "Ta7",
                   cause: "CALCULATION_STOPPED",
                   explanation:
-                    "Te8+ dá xeque, mas o rei foge para h7? Não — melhor: a torre em e8 fica ao alcance do rei? Não. O problema é outro: o rei tem g7... que está ocupada. Confira com calma qual torre chega a uma casa segura na oitava fileira.",
+                    "Ta7 sobe a coluna a na direção certa, mas para uma casa antes da oitava fileira — não é xeque. Complete o cálculo até o fim: só Ta8 ataca o rei.",
                 },
               ],
               explanation: {

@@ -58,6 +58,7 @@ model User {
   contestsReported  ContestedReport[] @relation("contestReporter")
   contestsResolved  ContestedReport[] @relation("contestResolver")
   analyticsEvents AnalyticsEvent[]
+  sampleAudits    SampleAuditRecord[]
 }
 
 model Profile {
@@ -217,6 +218,7 @@ model Exercise {
   reviews           ContentReview[]
   reviewSchedules   ReviewSchedule[]
   contestedReports  ContestedReport[]
+  sampleAudits      SampleAuditRecord[]
 
   @@index([reviewState])
   @@index([type, difficulty])
@@ -711,6 +713,23 @@ model ContestedReport {
   resolutionNotes String?
 
   @@index([exerciseId, status])
+}
+
+/// Ferramenta de rastreamento da auditoria por amostragem (A8, docs/09 §0,
+/// item 3): um jogador forte marca cada item sorteado como OK ou FLAGGED,
+/// com observação — histórico de rodadas de auditoria, não fila de trabalho.
+model SampleAuditRecord {
+  id         String   @id @default(cuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  auditedAt  DateTime @default(now())
+  auditorId  String
+  auditor    User     @relation(fields: [auditorId], references: [id], onDelete: Cascade)
+  /// OK | FLAGGED
+  outcome    String
+  notes      String?
+
+  @@index([exerciseId])
 }
 
 model AnalyticsEvent {

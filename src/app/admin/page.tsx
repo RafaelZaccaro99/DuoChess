@@ -104,6 +104,9 @@ export default function AdminPage() {
             <Link href="/admin/analytics" className="btn-ghost">
               Analytics
             </Link>
+            <Link href="/admin/auditoria" className="btn-ghost">
+              Auditoria
+            </Link>
             <Link href="/admin/exercicios/novo" className="btn-primary">
               Novo exercício
             </Link>
