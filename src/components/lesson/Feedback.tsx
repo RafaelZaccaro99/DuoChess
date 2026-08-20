@@ -64,7 +64,13 @@ export function Feedback({
 
   return (
     <div className="space-y-4">
+      {/* Anuncia o resultado assim que aparece — sem isto, quem usa leitor de
+          tela só descobre o veredito navegando manualmente até aqui, mesmo
+          resposta e explicação já estando na tela (mesmo espírito do
+          aria-live do tabuleiro, ADR-008). */}
       <div
+        role="status"
+        aria-live="polite"
         className={cn(
           "rounded-xl2 border p-4",
           evaluation.correct ? "border-ok/50 bg-ok/10" : "border-danger/50 bg-danger/10",

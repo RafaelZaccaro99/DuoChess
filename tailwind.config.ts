@@ -17,7 +17,10 @@ const config: Config = {
         // fundo escuro, invisível.
         surface: { DEFAULT: "#0F1216", raised: "#171C22", sunken: "#0A0D10" },
         line: { DEFAULT: "#232A33", strong: "#333D4A" },
-        ink: { DEFAULT: "#E8EDF2", muted: "#9CA9B7", faint: "#6B7885" },
+        // `faint` original (#6B7885) media 3,79:1 sobre `.card` (#171C22) — abaixo
+        // do 4,5:1 exigido pelo WCAG 2.2 AA para texto normal (achado real do
+        // axe-core em e2e/acessibilidade.spec.ts, A8). Clareado até 4,68:1.
+        ink: { DEFAULT: "#E8EDF2", muted: "#9CA9B7", faint: "#7B8794" },
 
         // Cor de marca — âmbar de tabuleiro, não amarelo de brinquedo
         brand: { DEFAULT: "#D9A441", strong: "#B8862B", soft: "#3A2E15" },

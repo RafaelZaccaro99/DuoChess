@@ -190,7 +190,9 @@ export default function MapaPage() {
                 key={unit.unitId}
                 className={cn(
                   "card",
-                  bloqueada && "opacity-60",
+                  // Bloqueada já se distingue pelo ícone "○" e por "Requer ...":
+                  // opacity aqui só dimeria o mesmo texto que precisa ficar
+                  // legível, e cortava o contraste abaixo de WCAG 2.2 AA.
                   !bloqueada && !dominada && "border-brand/50",
                 )}
               >
