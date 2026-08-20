@@ -314,3 +314,97 @@ export async function listAuthoredExercises(): Promise<AuthoredExerciseSummary[]
     updatedAt: r.updatedAt.toISOString(),
   }));
 }
+
+// ────────────────────────────────────────────────── exercícios contestados (A8)
+
+/**
+ * Contesta um exercício — qualquer usuário logado, não só admin. O item some
+ * da rotação imediatamente (`CONTESTED`), independente de ser estático ou de
+ * CMS: `Exercise` já espelha o conteúdo estático inteiro (prisma/seed.ts),
+ * então "sumir da rotação" é o mesmo mecanismo para os dois casos —
+ * `excludedSlugs()` abaixo é quem faz a exclusão valer em tempo de execução.
+ */
+export async function contestarExercicio(
+  reporterId: string,
+  slug: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const exercise = await prisma.exercise.findUnique({ where: { slug } });
+  if (!exercise) return { ok: false, error: "Exercício não encontrado." };
+
+  await prisma.$transaction([
+    prisma.contestedReport.create({ data: { exerciseId: exercise.id, reporterId, reason } }),
+    prisma.exercise.update({ where: { id: exercise.id }, data: { reviewState: "CONTESTED" } }),
+  ]);
+  return { ok: true };
+}
+
+export interface ContestedReportSummary {
+  id: string;
+  exerciseId: string;
+  exerciseSlug: string;
+  reason: string;
+  reporterName: string;
+  createdAt: string;
+  authoredByCms: boolean;
+}
+
+/** Fila de contestações em aberto — qualquer admin resolve qualquer uma. */
+export async function listarContestados(): Promise<ContestedReportSummary[]> {
+  const rows = await prisma.contestedReport.findMany({
+    where: { status: "OPEN" },
+    include: { exercise: true, reporter: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    exerciseId: r.exerciseId,
+    exerciseSlug: r.exercise.slug,
+    reason: r.reason,
+    reporterName: r.reporter.displayName,
+    createdAt: r.createdAt.toISOString(),
+    authoredByCms: r.exercise.authorId !== null,
+  }));
+}
+
+/**
+ * Resolve uma contestação. `reincluir: true` devolve o item à rotação
+ * (`PUBLISHED`) — cabível quando a contestação era falso-positivo, ou quando
+ * o conteúdo já foi corrigido (código para item estático, editor do CMS para
+ * item de CMS). `reincluir: false` mantém o item fora até alguém publicar
+ * de novo pelo caminho normal. Todo relatório ABERTO do mesmo exercício
+ * resolve junto — reincluir não pode deixar uma segunda denúncia pendente
+ * escondendo o item de novo na próxima checagem.
+ */
+export async function resolverContestacao(
+  resolverId: string,
+  reportId: string,
+  notes: string,
+  reincluir: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const report = await prisma.contestedReport.findUnique({ where: { id: reportId } });
+  if (!report) return { ok: false, error: "Contestação não encontrada." };
+
+  await prisma.$transaction([
+    prisma.contestedReport.updateMany({
+      where: { exerciseId: report.exerciseId, status: "OPEN" },
+      data: { status: "RESOLVED", resolvedAt: new Date(), resolverId, resolutionNotes: notes },
+    }),
+    ...(reincluir
+      ? [prisma.exercise.update({ where: { id: report.exerciseId }, data: { reviewState: "PUBLISHED" } })]
+      : []),
+  ]);
+  return { ok: true };
+}
+
+/**
+ * Slugs fora de rotação por contestação — a lista negra que o merge em
+ * tempo de execução aplica tanto a exercícios estáticos quanto de CMS.
+ */
+export async function excludedSlugs(): Promise<Set<string>> {
+  const rows = await prisma.exercise.findMany({
+    where: { reviewState: "CONTESTED" },
+    select: { slug: true },
+  });
+  return new Set(rows.map((r) => r.slug));
+}

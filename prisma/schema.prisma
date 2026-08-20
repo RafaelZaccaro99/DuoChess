@@ -55,6 +55,8 @@ model User {
   notifications Notification[]
   authoredExercises Exercise[]    @relation("exerciseAuthor")
   contentReviews ContentReview[]
+  contestsReported  ContestedReport[] @relation("contestReporter")
+  contestsResolved  ContestedReport[] @relation("contestResolver")
   analyticsEvents AnalyticsEvent[]
 }
 
@@ -214,6 +216,7 @@ model Exercise {
   attempts          ExerciseAttempt[]
   reviews           ContentReview[]
   reviewSchedules   ReviewSchedule[]
+  contestedReports  ContestedReport[]
 
   @@index([reviewState])
   @@index([type, difficulty])
@@ -687,6 +690,27 @@ model ContentReview {
   approved    Boolean
   notes       String?
   createdAt   DateTime @default(now())
+}
+
+/// Canal de exercícios contestados (A8, docs/09 §0) — correção empírica pro
+/// risco "xadrez certo, pedagogia errada": um jogador contesta, o item some
+/// da rotação (Exercise.reviewState vira CONTESTED), um admin resolve.
+model ContestedReport {
+  id             String    @id @default(cuid())
+  exerciseId     String
+  exercise       Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  reporterId     String
+  reporter       User      @relation("contestReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reason         String
+  /// OPEN | RESOLVED
+  status         String    @default("OPEN")
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  resolverId     String?
+  resolver       User?     @relation("contestResolver", fields: [resolverId], references: [id], onDelete: SetNull)
+  resolutionNotes String?
+
+  @@index([exerciseId, status])
 }
 
 model AnalyticsEvent {

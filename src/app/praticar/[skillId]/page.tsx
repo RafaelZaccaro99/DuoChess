@@ -24,7 +24,7 @@ import { buildIndex } from "@/domain/curriculum";
 import { mergeExercises } from "@/domain/curriculum/merge";
 import { effectiveMastery } from "@/domain/mastery";
 import { MASTERY_STATE_LABELS } from "@/domain/types";
-import { exerciciosPublicadosPara } from "@/app/actions";
+import { exerciciosPublicadosPara, slugsContestados } from "@/app/actions";
 import type { ExerciseDef } from "@/content/schema";
 
 const INDEX = buildIndex(COURSE);
@@ -47,7 +47,14 @@ export default function PraticarPage() {
     if (!skill) return;
     exerciciosPublicadosPara(skill.id).then(setCms);
   }, [skill]);
-  const index = useMemo(() => mergeExercises(INDEX, cms), [cms]);
+
+  // Contestados (A8) somem da rotação — estático ou de CMS.
+  const [excluidos, setExcluidos] = useState<string[]>([]);
+  useEffect(() => {
+    slugsContestados().then(setExcluidos);
+  }, []);
+
+  const index = useMemo(() => mergeExercises(INDEX, cms, new Set(excluidos)), [cms, excluidos]);
 
   /**
    * Menos tentados primeiro, e entre empatados os do banco de prática.

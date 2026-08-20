@@ -25,7 +25,7 @@ import { mergeExercises } from "@/domain/curriculum/merge";
 import { resolverRevisao } from "@/domain/adaptive/resolver";
 import { DEFAULT_FSRS, dueQueue, retrievability } from "@/domain/srs";
 import { daysBetween } from "@/domain/types";
-import { exerciciosPublicadosTodos } from "@/app/actions";
+import { exerciciosPublicadosTodos, slugsContestados } from "@/app/actions";
 import type { ExerciseDef } from "@/content/schema";
 import { track } from "@/lib/track";
 
@@ -42,18 +42,24 @@ export default function RevisaoPage() {
     exerciciosPublicadosTodos().then(setCms);
   }, []);
 
+  // Contestados (A8) somem da rotação — estático ou de CMS.
+  const [excluidos, setExcluidos] = useState<string[] | null>(null);
+  useEffect(() => {
+    slugsContestados().then(setExcluidos);
+  }, []);
+
   /**
    * A fila é congelada na entrada.
    *
    * Responder um item reagenda o cartão, o que o tiraria da fila no meio da
    * sessão e faria os itens dançarem debaixo do aluno.
    */
-  const fila = useCongelado(ready && state !== null && cms !== null, () => {
-    if (!state || !cms) return null;
+  const fila = useCongelado(ready && state !== null && cms !== null && excluidos !== null, () => {
+    if (!state || !cms || !excluidos) return null;
     const now = new Date().toISOString();
     const cartoes = Object.values(state.reviewCards);
     const vencidos = dueQueue(cartoes, now);
-    const index = mergeExercises(INDEX, cms);
+    const index = mergeExercises(INDEX, cms, new Set(excluidos));
 
     const { itens, semItem } = resolverRevisao({
       index,

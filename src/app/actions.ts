@@ -298,3 +298,34 @@ export async function painelDeAnalytics(): Promise<
   ]);
   return { northStar, eventos };
 }
+
+// ────────────────────────────────────────────────── exercícios contestados (A8)
+
+/** Qualquer conta logada pode contestar — não é privilégio de administrador. */
+export async function contestarExercicioAction(slug: string, reason: string): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  if (!reason.trim()) return { ok: false, error: "Diga em poucas palavras o que parece errado." };
+  return conteudo.contestarExercicio(user.id, slug, reason.trim());
+}
+
+export async function listarContestadosAction(): Promise<conteudo.ContestedReportSummary[] | ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.listarContestados();
+}
+
+export async function resolverContestacaoAction(
+  reportId: string,
+  notes: string,
+  reincluir: boolean,
+): Promise<ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  return conteudo.resolverContestacao(admin.id, reportId, notes, reincluir);
+}
+
+/** Leitura pública, sem checagem de admin — /praticar, /sessão e /revisão excluem esses slugs da rotação. */
+export async function slugsContestados(): Promise<string[]> {
+  return [...(await conteudo.excludedSlugs())];
+}

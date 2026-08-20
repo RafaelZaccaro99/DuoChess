@@ -16,23 +16,36 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
-import { listarExerciciosAutorados } from "@/app/actions";
-import type { AuthoredExerciseSummary } from "@/lib/content-server";
+import { listarExerciciosAutorados, listarContestadosAction, resolverContestacaoAction } from "@/app/actions";
+import type { AuthoredExerciseSummary, ContestedReportSummary } from "@/lib/content-server";
 
 const ROTULO_ESTADO: Record<string, string> = {
   DRAFT: "Rascunho",
   PUBLISHED: "Publicado",
+  CONTESTED: "Contestado",
+};
+
+const TOM_ESTADO: Record<string, string> = {
+  PUBLISHED: "bg-ok/10 text-ok",
+  CONTESTED: "bg-danger/10 text-danger",
 };
 
 export default function AdminPage() {
   const { user, ready } = useProgress();
   const [itens, setItens] = useState<AuthoredExerciseSummary[] | null>(null);
+  const [contestados, setContestados] = useState<ContestedReportSummary[] | null>(null);
+  const [resolvendo, setResolvendo] = useState<string | null>(null);
+
+  const recarregarContestados = () => {
+    listarContestadosAction().then((r) => setContestados(Array.isArray(r) ? r : []));
+  };
 
   useEffect(() => {
     if (user?.role !== "ADMIN") return;
     listarExerciciosAutorados().then((r) => {
       setItens(Array.isArray(r) ? r : []);
     });
+    recarregarContestados();
   }, [user]);
 
   if (!ready) {
@@ -97,6 +110,71 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* ── Contestados (A8): correção empírica, resolve antes de mexer na fila do CMS. */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-ink-faint">Contestados</h2>
+
+          {contestados === null && <p className="text-sm text-ink-muted">Carregando…</p>}
+
+          {contestados !== null && contestados.length === 0 && (
+            <p className="text-sm text-ink-muted">Nenhuma contestação em aberto.</p>
+          )}
+
+          {contestados !== null &&
+            contestados.map((c) => (
+              <div key={c.id} className="card border-danger/30">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">
+                      {c.exerciseSlug} {c.authoredByCms && <span className="text-ink-faint">(CMS)</span>}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {c.reporterName} · {new Date(c.createdAt).toLocaleDateString("pt-BR")}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-ink">{c.reason}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-primary text-xs"
+                    disabled={resolvendo === c.id}
+                    onClick={() => {
+                      setResolvendo(c.id);
+                      resolverContestacaoAction(c.id, "Reincluído após revisão.", true).then(() => {
+                        setResolvendo(null);
+                        recarregarContestados();
+                      });
+                    }}
+                  >
+                    Reincluir na rotação
+                  </button>
+                  {c.authoredByCms && (
+                    <Link href={`/admin/exercicios/${c.exerciseId}`} className="btn-ghost text-xs">
+                      Editar e republicar
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-ghost text-xs"
+                    disabled={resolvendo === c.id}
+                    onClick={() => {
+                      setResolvendo(c.id);
+                      resolverContestacaoAction(c.id, "Mantido fora de rotação.", false).then(() => {
+                        setResolvendo(null);
+                        recarregarContestados();
+                      });
+                    }}
+                  >
+                    Manter fora, sem reincluir
+                  </button>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        <h2 className="text-sm font-bold uppercase tracking-wider text-ink-faint">Exercícios de CMS</h2>
+
         {itens === null && <p className="text-sm text-ink-muted">Carregando fila…</p>}
 
         {itens !== null && itens.length === 0 && (
@@ -130,11 +208,9 @@ export default function AdminPage() {
                     <td className="py-2 pr-3 text-ink-muted">{e.skillIds.join(", ") || "—"}</td>
                     <td className="py-2 pr-3">
                       <span
-                        className={
-                          e.reviewState === "PUBLISHED"
-                            ? "rounded-full bg-ok/10 px-2 py-0.5 text-xs font-semibold text-ok"
-                            : "rounded-full bg-warn/10 px-2 py-0.5 text-xs font-semibold text-warn"
-                        }
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          TOM_ESTADO[e.reviewState] ?? "bg-warn/10 text-warn"
+                        }`}
                       >
                         {ROTULO_ESTADO[e.reviewState] ?? e.reviewState}
                       </span>

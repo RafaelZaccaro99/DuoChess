@@ -25,7 +25,7 @@ import { COURSE } from "@/content";
 import { buildIndex, skillIndexForScore } from "@/domain/curriculum";
 import { mergeExercises } from "@/domain/curriculum/merge";
 import { planSession } from "@/domain/adaptive";
-import { exerciciosPublicadosTodos } from "@/app/actions";
+import { exerciciosPublicadosTodos, slugsContestados } from "@/app/actions";
 import type { ExerciseDef } from "@/content/schema";
 import { resolverSessao, type ItemDaSessao } from "@/domain/adaptive/resolver";
 import { montarMicrolicao, type Microlicao as MicrolicaoDef } from "@/domain/adaptive/microlicao";
@@ -59,17 +59,23 @@ export default function SessaoPage() {
     exerciciosPublicadosTodos().then(setCms);
   }, []);
 
+  // Contestados (A8) somem da rotação — estático ou de CMS.
+  const [excluidos, setExcluidos] = useState<string[] | null>(null);
+  useEffect(() => {
+    slugsContestados().then(setExcluidos);
+  }, []);
+
   /**
    * A sessão é montada UMA vez e congelada.
    *
    * Recalcular a cada resposta mudaria os itens debaixo do aluno: acertar move o
    * domínio, o que move o gargalo, o que reordenaria a sessão em andamento.
    */
-  const plano = useCongelado(ready && state !== null && cms !== null, () => {
-    if (!state || !cms) return null;
+  const plano = useCongelado(ready && state !== null && cms !== null && excluidos !== null, () => {
+    if (!state || !cms || !excluidos) return null;
     const now = new Date().toISOString();
     const masteries = masteryMap(state);
-    const index = mergeExercises(INDEX, cms);
+    const index = mergeExercises(INDEX, cms, new Set(excluidos));
 
     const plan = planSession({
       index,
