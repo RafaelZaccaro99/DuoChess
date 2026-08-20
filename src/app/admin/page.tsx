@@ -87,9 +87,14 @@ export default function AdminPage() {
             </Link>
             <h1 className="text-xl font-bold tracking-tight">Conteúdo (CMS)</h1>
           </div>
-          <Link href="/admin/exercicios/novo" className="btn-primary">
-            Novo exercício
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/admin/analytics" className="btn-ghost">
+              Analytics
+            </Link>
+            <Link href="/admin/exercicios/novo" className="btn-primary">
+              Novo exercício
+            </Link>
+          </div>
         </div>
 
         {itens === null && <p className="text-sm text-ink-muted">Carregando fila…</p>}

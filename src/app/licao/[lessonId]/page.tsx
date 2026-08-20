@@ -10,7 +10,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
@@ -23,6 +23,8 @@ import { buildIndex, nextStep, skillIndexForScore } from "@/domain/curriculum";
 import { computeChessScore } from "@/domain/score/chess-score";
 import { applyFocusRecovery, masteryList, masteryMap, totalXP } from "@/domain/session";
 import { COMPETENCY_LABELS } from "@/domain/types";
+import { track } from "@/lib/track";
+import type { ExerciseDef } from "@/content/schema";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_INDEX = skillIndexForScore(INDEX);
@@ -59,6 +61,29 @@ export default function LessonPage() {
 
   const executor = useExecutorDeExercicios({ itens: lesson?.exercises ?? [] });
 
+  const lessonStartedRef = useRef(false);
+  useEffect(() => {
+    if (!lesson || lessonStartedRef.current) return;
+    lessonStartedRef.current = true;
+    track("lesson_started", { lessonId: lesson.id });
+  }, [lesson]);
+
+  // Cada troca de fase entre exercícios consecutivos fecha a fase anterior.
+  const faseAnteriorRef = useRef<ExerciseDef["phase"] | null>(null);
+  useEffect(() => {
+    const faseAtual = executor.exercicio?.phase ?? null;
+    if (faseAnteriorRef.current && faseAnteriorRef.current !== faseAtual) {
+      track("lesson_phase_completed", { lessonId: lesson?.id, phase: faseAnteriorRef.current });
+    }
+    faseAnteriorRef.current = faseAtual;
+  }, [executor.exercicio, lesson?.id]);
+
+  useEffect(() => {
+    if (!executor.concluido || !faseAnteriorRef.current) return;
+    track("lesson_phase_completed", { lessonId: lesson?.id, phase: faseAnteriorRef.current });
+    faseAnteriorRef.current = null;
+  }, [executor.concluido, lesson?.id]);
+
   const xpDaSessao = useMemo(() => {
     if (!state) return 0;
     return state.xpEvents
@@ -75,6 +100,10 @@ export default function LessonPage() {
     if (!state) return null;
     return nextStep(INDEX, masteryMap(state), new Date().toISOString());
   }, [state]);
+
+  useEffect(() => {
+    if (executor.concluido && score) track("chess_score_updated", { total: score.total });
+  }, [executor.concluido, score]);
 
   if (!ready || !state) {
     return (

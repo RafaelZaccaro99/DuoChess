@@ -11,13 +11,14 @@
  */
 
 import Link from "next/link";
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useProgress } from "@/components/ProgressProvider";
 import { ProgressBar } from "@/components/ui/Meters";
 import { ExecutorDeExercicios } from "@/components/exercicio/ExecutorDeExercicios";
 import { useDiagnosticExecutor } from "@/components/diagnostico/useDiagnosticExecutor";
 import { registrarDiagnostico } from "@/app/actions";
+import { track } from "@/lib/track";
 import { COURSE } from "@/content";
 import { buildIndex, skillIndexForScore } from "@/domain/curriculum";
 import { selectDiagnosticItems } from "@/domain/diagnostic/select";
@@ -41,6 +42,11 @@ function DiagnosticoInterno() {
   const modo = params.get("modo") === "full" ? "FULL" : "QUICK";
   const entryPoint: EntryPoint = modo;
   const itens = useMemo(() => selectDiagnosticItems(INDEX, modo), [modo]);
+
+  useEffect(() => {
+    track("diagnostic_started", { modo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [resultado, setResultado] = useState<{ score: ChessScore; reliable: boolean; reason: string | null } | null>(
     null,

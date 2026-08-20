@@ -9,7 +9,7 @@
  * não confiável em vez de virar trilha.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProgress } from "@/components/ProgressProvider";
 import {
@@ -21,6 +21,7 @@ import {
 import { registrarDiagnostico } from "@/app/actions";
 import { cn } from "@/lib/cn";
 import { ProgressBar } from "@/components/ui/Meters";
+import { track } from "@/lib/track";
 
 interface Question {
   key: keyof OnboardingAnswers;
@@ -133,6 +134,10 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    track("onboarding_started");
+  }, []);
+
   const isEntryStep = step === QUESTIONS.length;
   const question = QUESTIONS[step];
 
@@ -162,6 +167,7 @@ export default function OnboardingPage() {
     };
     const now = new Date().toISOString();
     update((previous) => recordOnboardingAnswers(previous, parsed, entryPoint, now));
+    track("onboarding_completed", { entryPoint });
 
     if (entryPoint === "QUICK" || entryPoint === "FULL") {
       router.push(`/onboarding/diagnostico?modo=${entryPoint.toLowerCase()}`);

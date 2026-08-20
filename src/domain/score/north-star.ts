@@ -29,6 +29,35 @@ export interface TransferResult {
   pendingTransfer: string[];
 }
 
+export interface MultiUserTransferInput {
+  masteriesByUser: ReadonlyMap<string, readonly SkillMastery[]>;
+  reviewsByUser: ReadonlyMap<string, readonly ReviewCard[]>;
+}
+
+export interface MultiUserTransferResult {
+  count: number;
+  usersCounted: number;
+  pairs: Array<{ userId: string; skillId: string }>;
+}
+
+/**
+ * A North Star do produto inteiro: soma de `countTransferredSkills` por
+ * usuário. Pura de propósito — quem chama decide de onde vêm os dados
+ * (Postgres real, fixture de teste), esta função só agrega.
+ */
+export function countTransferredSkillsAcrossUsers(input: MultiUserTransferInput): MultiUserTransferResult {
+  const pairs: MultiUserTransferResult["pairs"] = [];
+  for (const [userId, masteries] of input.masteriesByUser) {
+    const result = countTransferredSkills({
+      masteries,
+      reviewCards: input.reviewsByUser.get(userId) ?? [],
+      appliedInGameSkillIds: [],
+    });
+    for (const skillId of result.skillIds) pairs.push({ userId, skillId });
+  }
+  return { count: pairs.length, usersCounted: input.masteriesByUser.size, pairs };
+}
+
 export function countTransferredSkills(input: TransferInput): TransferResult {
   const applied = new Set(input.appliedInGameSkillIds);
   const cardBySkill = new Map(

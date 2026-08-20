@@ -27,6 +27,7 @@ import { DEFAULT_FSRS, dueQueue, retrievability } from "@/domain/srs";
 import { daysBetween } from "@/domain/types";
 import { exerciciosPublicadosTodos } from "@/app/actions";
 import type { ExerciseDef } from "@/content/schema";
+import { track } from "@/lib/track";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_TITLES = Object.fromEntries([...INDEX.skills.values()].map((s) => [s.id, s.title]));
@@ -80,6 +81,17 @@ export default function RevisaoPage() {
     // Concluir revisão recupera Foco — está na tabela do domínio.
     recuperaFocoAoConcluir: "REVIEW_COMPLETED",
   });
+
+  const filaAvisadaRef = useState(() => ({ avisada: false }))[0];
+  useEffect(() => {
+    if (!fila || filaAvisadaRef.avisada) return;
+    filaAvisadaRef.avisada = true;
+    track("review_due_shown", { vencidos: fila.totalVencido });
+  }, [fila, filaAvisadaRef]);
+
+  useEffect(() => {
+    if (executor.concluido) track("review_completed", { itens: executor.total });
+  }, [executor.concluido, executor.total]);
 
   if (!ready || !state || !fila) {
     return (

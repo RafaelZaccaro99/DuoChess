@@ -24,9 +24,61 @@ import {
   applyFocusRecovery,
   recordAttempt,
   type AttemptEffects,
+  type AttemptResult,
   type ProgressState,
 } from "@/domain/session";
 import type { FocusRecoveryAction } from "@/domain/gamification";
+import { track } from "@/lib/track";
+
+/**
+ * Todo evento derivado de UMA tentativa nasce aqui — o único produtor de
+ * `exercise_attempted`/`mastery_changed`/`xp_awarded`/`error_classified`/
+ * `microlesson_triggered`/`focus_depleted`/`focus_recovered`/`streak_extended`.
+ * Centralizar é o que faz o ADR-004 continuar valendo: são props diferentes
+ * de um mesmo evento de tentativa, não produtores concorrentes.
+ */
+function emitirEventosDaTentativa(exercicio: ExerciseDef, antes: ProgressState, resultado: AttemptResult): void {
+  const { effects, state: depois } = resultado;
+
+  track("exercise_attempted", {
+    exerciseSlug: exercicio.slug,
+    skillIds: exercicio.skillIds,
+    type: exercicio.type,
+    correct: effects.evaluation.correct,
+    cause: effects.evaluation.cause,
+  });
+
+  if (effects.evaluation.cause) {
+    track("error_classified", {
+      cause: effects.evaluation.cause,
+      confidence: effects.evaluation.causeConfidence,
+      skillIds: exercicio.skillIds,
+    });
+  }
+
+  for (const d of effects.masteryDelta) {
+    if (d.before === d.after) continue;
+    track("mastery_changed", { skillId: d.skillId, before: d.before, after: d.after });
+  }
+
+  if (effects.xpAwarded > 0) {
+    track("xp_awarded", { amount: effects.xpAwarded, exerciseSlug: exercicio.slug });
+  }
+
+  if (effects.microlesson) {
+    track("microlesson_triggered", { cause: effects.evaluation.cause, skillIds: exercicio.skillIds });
+  }
+
+  if (depois.focus.value < antes.focus.value) {
+    track("focus_depleted", { before: antes.focus.value, after: depois.focus.value });
+  } else if (depois.focus.value > antes.focus.value) {
+    track("focus_recovered", { before: antes.focus.value, after: depois.focus.value });
+  }
+
+  if (depois.streak.current > antes.streak.current) {
+    track("streak_extended", { current: depois.streak.current });
+  }
+}
 
 export interface ExecutorOptions {
   itens: readonly ExerciseDef[];
@@ -82,13 +134,15 @@ export function useExecutorDeExercicios(options: ExecutorOptions): Executor {
 
       update(() => resultado.state);
       setEfeitos(resultado.effects);
+      emitirEventosDaTentativa(exercicio, state, resultado);
     },
     [exercicio, state, efeitos, dicasUsadas, inicio, update],
   );
 
   const pedirDica = useCallback(() => {
     setDicasUsadas((d) => Math.min(3, d + 1));
-  }, []);
+    if (exercicio) track("hint_used", { exerciseSlug: exercicio.slug, skillIds: exercicio.skillIds });
+  }, [exercicio]);
 
   const avancar = useCallback(() => {
     if (indice + 1 >= total) {

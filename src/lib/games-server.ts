@@ -28,6 +28,7 @@ import { classifyGameError, type HumanMomentReport } from "@/domain/game/classif
 import { detectTransfers, type TransferMoment } from "@/domain/game/transfer";
 import { masteredSkillIn, weakestAvailableSkillIn } from "@/domain/game/skillAssignment";
 import { computePlayerDNA, type PlayerDNA } from "@/domain/game/dna";
+import { track } from "./analytics-server";
 import { competencyFor } from "@/domain/errors/taxonomy";
 import type { ErrorCause, ErrorSeverity } from "@/domain/errors/taxonomy";
 import { registerGameApplication } from "@/domain/mastery";
@@ -133,6 +134,8 @@ export async function startBotGame(
     }
   }
 
+  await track("game_started", userId, { mode: "BOT", botRating: input.botRating, userColor: input.userColor });
+
   return { gameId: game.id, fen };
 }
 
@@ -210,6 +213,8 @@ export async function playUserMove(
     },
   });
 
+  if (acabou) await track("game_finished", userId, { gameId, status, mode: "BOT" });
+
   return { ok: true, fen, status, botMove };
 }
 
@@ -249,6 +254,7 @@ export async function loadGame(userId: string, gameId: string): Promise<LoadGame
 export async function finishGame(userId: string, gameId: string, result: string): Promise<GameResult> {
   if (!(await ownsGame(userId, gameId))) return { ok: false, error: "Partida não encontrada." };
   await prisma.game.update({ where: { id: gameId }, data: { result, finishedAt: new Date() } });
+  await track("game_finished", userId, { gameId, result, mode: "BOT" });
   return { ok: true };
 }
 
@@ -293,6 +299,7 @@ export async function importPgn(
   });
 
   await prisma.importedPGN.create({ data: { userId, rawPgn, gamesFound: gamesFoundInPaste } });
+  await track("pgn_imported", userId, { gameId: game.id, movesImported: parsed.game.moves.length });
 
   return { ok: true, gameId: game.id, movesImported: parsed.game.moves.length, gamesFoundInPaste };
 }
@@ -447,6 +454,7 @@ export async function submitHumanAnalysis(
       humanTimeSec: data.timeSec,
     },
   });
+  await track("human_analysis_completed", userId, { analysisId, momentId, evalChoice: data.evalChoice });
   return { ok: true };
 }
 
@@ -457,6 +465,7 @@ export async function skipHumanAnalysis(
 ): Promise<GameResult> {
   if (!(await ownsAnalysis(userId, analysisId))) return { ok: false, error: "Análise não encontrada." };
   await prisma.criticalMoment.update({ where: { id: momentId }, data: { humanSkipped: true } });
+  await track("human_analysis_skipped", userId, { analysisId, momentId });
   return { ok: true };
 }
 
@@ -487,6 +496,8 @@ export async function revealEngine(
   if (!respondeu) {
     return { ok: false, error: "Registre sua leitura da posição antes de ver a engine." };
   }
+
+  await track("engine_analysis_completed", userId, { analysisId, momentId });
 
   return {
     ok: true,
@@ -615,6 +626,10 @@ export async function finalizeAnalysis(
       },
     });
   });
+
+  for (const skillId of transferredSkillIds) {
+    await track("skill_transferred", userId, { skillId, analysisId });
+  }
 
   return { ok: true, transferredSkillIds };
 }

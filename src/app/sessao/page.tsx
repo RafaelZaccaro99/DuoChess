@@ -34,6 +34,7 @@ import { masteryList, masteryMap, totalXP } from "@/domain/session";
 import { dueQueue } from "@/domain/srs";
 import { COMPETENCY_LABELS } from "@/domain/types";
 import { ERROR_TAXONOMY } from "@/domain/errors/taxonomy";
+import { track } from "@/lib/track";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_INDEX = skillIndexForScore(INDEX);
@@ -128,6 +129,23 @@ export default function SessaoPage() {
     if (!state) return null;
     return computeChessScore(masteryList(state), SKILL_INDEX, new Date().toISOString());
   }, [state]);
+
+  const sessaoAvisadaRef = useState(() => ({ avisada: false }))[0];
+  useEffect(() => {
+    if (!plano || !state || sessaoAvisadaRef.avisada) return;
+    sessaoAvisadaRef.avisada = true;
+    const vencidosAgora = dueQueue(Object.values(state.reviewCards), new Date().toISOString()).length;
+    track("review_due_shown", { vencidos: vencidosAgora });
+    if (plano.plan.bottleneckCause) {
+      track("bottleneck_identified", { cause: plano.plan.bottleneckCause });
+    }
+  }, [plano, state, sessaoAvisadaRef]);
+
+  useEffect(() => {
+    if (!executor.concluido) return;
+    track("session_summary_viewed");
+    if (score) track("chess_score_updated", { total: score.total });
+  }, [executor.concluido, score]);
 
   if (!ready || !state || !plano || !score) {
     return (

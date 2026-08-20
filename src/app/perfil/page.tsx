@@ -23,6 +23,7 @@ import { effectiveMastery } from "@/domain/mastery";
 import { ERROR_TAXONOMY, recurrenceByCause } from "@/domain/errors/taxonomy";
 import { COMPETENCIES, COMPETENCY_LABELS, MASTERY_STATE_LABELS } from "@/domain/types";
 import type { PlayerDNA } from "@/lib/games-server";
+import { track } from "@/lib/track";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_INDEX = skillIndexForScore(INDEX);
@@ -56,6 +57,11 @@ export default function PerfilPage() {
   }, [state]);
 
   const reliability = view ? assessReliability(view.score.total, dna?.gamesAnalyzed ?? 0) : null;
+
+  useEffect(() => {
+    if (view) track("chess_score_updated", { total: view.score.total });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view?.score.total]);
 
   if (!ready || !state || !view) {
     return (

@@ -26,6 +26,14 @@ import * as jogos from "@/lib/games-server";
 import type { BotRating } from "@/domain/game/bot";
 import * as conteudo from "@/lib/content-server";
 import type { ExerciseDef, ExerciseInput } from "@/content/schema";
+import {
+  computeNorthStarForWeek,
+  eventCountsLast24h,
+  track,
+  type AnalyticsEventName,
+  type EventCount,
+  type NorthStarResult,
+} from "@/lib/analytics-server";
 
 export interface ActionResult {
   ok: boolean;
@@ -116,6 +124,7 @@ export async function registrarDiagnostico(
   const user = await currentUser();
   if (!user) return { ok: true };
   await saveDiagnostic(user.id, entryPoint, answers, result);
+  await track("diagnostic_completed", user.id, { entryPoint, reliable: result.reliable });
   return { ok: true };
 }
 
@@ -261,4 +270,31 @@ export async function exerciciosPublicadosPara(skillId: string): Promise<Exercis
 /** Leitura pública, sem checagem de admin — /sessão e /revisão sacam de várias habilidades de uma vez. */
 export async function exerciciosPublicadosTodos(): Promise<ExerciseDef[]> {
   return conteudo.publishedExercises();
+}
+
+// ────────────────────────────────────────────────── analytics (A8)
+
+/**
+ * Porta fina para os eventos que só existem do lado do cliente (docs/08).
+ * Anônimo grava com userId nulo — o contrato de eventos não exige conta.
+ */
+export async function registrarEvento(
+  name: AnalyticsEventName,
+  props: Record<string, unknown> = {},
+  sessionId?: string,
+): Promise<void> {
+  const user = await currentUser();
+  await track(name, user?.id ?? null, props, sessionId);
+}
+
+export async function painelDeAnalytics(): Promise<
+  { northStar: NorthStarResult; eventos: EventCount[] } | ActionResult
+> {
+  const admin = await currentAdmin();
+  if (!admin) return NAO_ADMIN;
+  const [northStar, eventos] = await Promise.all([
+    computeNorthStarForWeek(new Date().toISOString()),
+    eventCountsLast24h(),
+  ]);
+  return { northStar, eventos };
 }
