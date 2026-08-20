@@ -42,10 +42,27 @@ function domainCardId(userId: string, dbId: string): string {
   return dbId.startsWith(prefixo) ? dbId.slice(prefixo.length) : dbId;
 }
 
+type SkillMasteryRow = Awaited<ReturnType<typeof prisma.skillMastery.findFirstOrThrow>>;
+
+/** Traduz uma linha de `SkillMastery` para o tipo de domínio. Reaproveitado por games-server.ts. */
+export function rowToMastery(m: SkillMasteryRow): SkillMastery {
+  return {
+    skillId: m.skillId,
+    value: m.value,
+    state: m.state as MasteryState,
+    confidence: m.confidence,
+    decayRatePerDay: m.decayRatePerDay,
+    attempts: m.attempts,
+    correctStreak: m.correctStreak,
+    lastAssessedAt: m.lastAssessedAt?.toISOString() ?? null,
+    appliedInGame: m.appliedInGame,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────── leitura
 
 export async function loadProgress(userId: string): Promise<ProgressState> {
-  const [user, masteries, reviews, streak, focus, xpEvents, attempts, diagnostic] =
+  const [user, masteries, reviews, streak, focus, xpEvents, attempts, diagnostic, gameErrors] =
     await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, include: { profile: true } }),
       prisma.skillMastery.findMany({ where: { userId } }),
@@ -59,22 +76,40 @@ export async function loadProgress(userId: string): Promise<ProgressState> {
         include: { errors: true },
       }),
       prisma.diagnosticResult.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } }),
+      // Erros classificados a partir de análise de partida (A5) — sem isto o
+      // motor adaptativo nunca vê o que aconteceu em partida, e metade do
+      // propósito de D5/D6 (docs/02) fica sem efeito.
+      prisma.errorClassification.findMany({
+        where: { analysis: { game: { userId } } },
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
 
   if (!user) throw new Error(`usuário inexistente: ${userId}`);
 
   const base = emptyProgress(user.createdAt.toISOString());
 
-  const errors: ClassifiedError[] = attempts.flatMap((attempt) =>
-    attempt.errors.map((e) => ({
+  const errors: ClassifiedError[] = [
+    ...attempts.flatMap((attempt) =>
+      attempt.errors.map((e) => ({
+        cause: e.cause as ErrorCause,
+        severity: e.severity as ErrorSeverity,
+        confidence: e.confidence,
+        explanation: e.explanation,
+        skillId: e.skillId ?? undefined,
+        at: e.createdAt.toISOString(),
+      })),
+    ),
+    ...gameErrors.map((e) => ({
       cause: e.cause as ErrorCause,
       severity: e.severity as ErrorSeverity,
       confidence: e.confidence,
       explanation: e.explanation,
       skillId: e.skillId ?? undefined,
+      ply: e.ply ?? undefined,
       at: e.createdAt.toISOString(),
     })),
-  );
+  ];
 
   return {
     ...base,
@@ -82,22 +117,7 @@ export async function loadProgress(userId: string): Promise<ProgressState> {
     updatedAt: user.updatedAt.toISOString(),
     onboarding: profileToOnboarding(user.profile),
     entryPoint: (diagnostic?.kind as EntryPoint | undefined) ?? null,
-    masteries: Object.fromEntries(
-      masteries.map((m): [string, SkillMastery] => [
-        m.skillId,
-        {
-          skillId: m.skillId,
-          value: m.value,
-          state: m.state as MasteryState,
-          confidence: m.confidence,
-          decayRatePerDay: m.decayRatePerDay,
-          attempts: m.attempts,
-          correctStreak: m.correctStreak,
-          lastAssessedAt: m.lastAssessedAt?.toISOString() ?? null,
-          appliedInGame: m.appliedInGame,
-        },
-      ]),
-    ),
+    masteries: Object.fromEntries(masteries.map((m): [string, SkillMastery] => [m.skillId, rowToMastery(m)])),
     reviewCards: Object.fromEntries(
       reviews.map((r): [string, ReviewCard] => [
         domainCardId(userId, r.id),

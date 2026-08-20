@@ -18,7 +18,8 @@ import { effectiveMastery } from "../mastery";
 import type { AttemptLog } from "../session";
 import type { SkillMastery } from "../types";
 
-export interface ItemDaSessao {
+export interface ExercicioDaSessao {
+  tipo: "exercicio";
   exercise: ExerciseDef;
   kind: SessionSlotKind;
   /** Por que este item está na sessão — vem do mixer e é exibido ao aluno. */
@@ -26,6 +27,22 @@ export interface ItemDaSessao {
   /** Habilidade que o item treina, quando o slot a nomeia. */
   skillId?: string;
 }
+
+/**
+ * Convite à minipartida — o slot PRACTICAL, desde que os bots existam (A5).
+ *
+ * Jogar uma partida não cabe no laço de "responder um item e avançar": não tem
+ * resposta única, nem fim previsível em passos. Por isso não é um exercício —
+ * é um convite que aparece junto da sessão e leva para `/jogar`, sem bloquear
+ * nem contar como tentativa.
+ */
+export interface MinipartidaDaSessao {
+  tipo: "minipartida";
+  kind: "PRACTICAL";
+  rationale: string;
+}
+
+export type ItemDaSessao = ExercicioDaSessao | MinipartidaDaSessao;
 
 export interface SlotNaoResolvido {
   kind: SessionSlotKind;
@@ -117,7 +134,7 @@ export function resolverSessao(entrada: EntradaDoResolvedor): SessaoResolvida {
     );
     if (!escolhido) return false;
     jaServidos.add(escolhido.slug);
-    itens.push({ exercise: escolhido, kind: slot.kind, rationale: slot.rationale, skillId });
+    itens.push({ tipo: "exercicio", exercise: escolhido, kind: slot.kind, rationale: slot.rationale, skillId });
     return true;
   };
 
@@ -135,6 +152,7 @@ export function resolverSessao(entrada: EntradaDoResolvedor): SessaoResolvida {
           if (exercise && !jaServidos.has(exercise.slug)) {
             jaServidos.add(exercise.slug);
             itens.push({
+              tipo: "exercicio",
               exercise,
               kind: slot.kind,
               rationale: slot.rationale,
@@ -175,13 +193,8 @@ export function resolverSessao(entrada: EntradaDoResolvedor): SessaoResolvida {
       }
 
       case "PRACTICAL":
-        // A fatia prática está desligada enquanto não existem partidas
-        // (ver MIX_SEM_PARTIDAS). Se um slot destes chegar aqui, é porque
-        // alguém usou outra mistura — e o motivo precisa ficar visível.
-        naoResolvidos.push({
-          kind: slot.kind,
-          motivo: "aplicação em partida ainda não existe; a fatia prática está desligada",
-        });
+        // Minipartida é convite, não item respondível — ver MinipartidaDaSessao.
+        itens.push({ tipo: "minipartida", kind: "PRACTICAL", rationale: slot.rationale });
         break;
     }
   }

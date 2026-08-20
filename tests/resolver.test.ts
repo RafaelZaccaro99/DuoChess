@@ -9,8 +9,14 @@
 import { describe, expect, it } from "vitest";
 import { COURSE } from "@/content";
 import { buildIndex } from "@/domain/curriculum";
-import { DEFAULT_ADAPTIVE, MIX_SEM_PARTIDAS, planSession } from "@/domain/adaptive";
-import { alvoDoCartao, resolverRevisao, resolverSessao } from "@/domain/adaptive/resolver";
+import { DEFAULT_ADAPTIVE, DEFAULT_MIX, MIX_SEM_PARTIDAS, planSession } from "@/domain/adaptive";
+import {
+  alvoDoCartao,
+  resolverRevisao,
+  resolverSessao,
+  type ExercicioDaSessao,
+  type ItemDaSessao,
+} from "@/domain/adaptive/resolver";
 import { emptyMastery } from "@/domain/mastery";
 import { newCard } from "@/domain/srs";
 import { emptyProgress, recordAttempt, type AttemptLog } from "@/domain/session";
@@ -19,6 +25,13 @@ import type { ExerciseDef } from "@/content/schema";
 
 const T0 = "2026-03-01T10:00:00.000Z";
 const index = buildIndex(COURSE);
+
+/** Estreita um item da sessão para exercício, ou falha o teste — para os casos em
+ * que o slot testado só pode ter resolvido para um exercício. */
+function soExercicio(item: ItemDaSessao | undefined): ExercicioDaSessao {
+  if (!item || item.tipo !== "exercicio") throw new Error("esperava um item de exercício");
+  return item;
+}
 
 function masteries(entradas: Record<string, number>): Map<string, SkillMastery> {
   return new Map(
@@ -62,8 +75,12 @@ describe("a mistura sem partidas", () => {
     expect(soma).toBeCloseTo(1, 10);
   });
 
-  it("é a mistura padrão enquanto não há bots", () => {
-    expect(DEFAULT_ADAPTIVE.mix).toBe(MIX_SEM_PARTIDAS);
+});
+
+describe("a mistura padrão desde que os bots existem (A5)", () => {
+  it("volta a reservar a fatia prática, agora que minipartida existe", () => {
+    expect(DEFAULT_ADAPTIVE.mix).toBe(DEFAULT_MIX);
+    expect(DEFAULT_MIX.practicalChallenge).toBeGreaterThan(0);
   });
 });
 
@@ -122,7 +139,7 @@ describe("resolver a sessão", () => {
     });
 
     const { itens } = resolverSessao({ index, slots: plan.slots, masteries: m, attempts: [], nowIso: T0 });
-    const slugs = itens.map((i) => i.exercise.slug);
+    const slugs = itens.filter((i) => i.tipo === "exercicio").map((i) => i.exercise.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
@@ -147,7 +164,7 @@ describe("resolver a sessão", () => {
       nowIso: T0,
     });
 
-    expect(itens[0]!.exercise.slug).not.toBe(jaVisto.slug);
+    expect(soExercicio(itens[0]).exercise.slug).not.toBe(jaVisto.slug);
   });
 
   it("cartão de exercício resolve para aquele exercício exato", () => {
@@ -158,7 +175,7 @@ describe("resolver a sessão", () => {
       attempts: [],
       nowIso: T0,
     });
-    expect(itens[0]!.exercise.slug).toBe("r4.e3");
+    expect(soExercicio(itens[0]).exercise.slug).toBe("r4.e3");
   });
 
   it("cartão de conceito resolve para algum item da habilidade", () => {
@@ -169,24 +186,35 @@ describe("resolver a sessão", () => {
       attempts: [],
       nowIso: T0,
     });
-    expect(itens[0]!.exercise.skillIds).toContain("r5.mate-em-1");
+    expect(soExercicio(itens[0]).exercise.skillIds).toContain("r5.mate-em-1");
   });
 
   it("espaço que não resolve é reportado com motivo, nunca sumido em silêncio", () => {
     const { itens, naoResolvidos } = resolverSessao({
       index,
-      slots: [
-        { kind: "REVIEW", reviewCardId: "ex:nao-existe", rationale: "x" },
-        { kind: "PRACTICAL", rationale: "y" },
-      ],
+      slots: [{ kind: "REVIEW", reviewCardId: "ex:nao-existe", rationale: "x" }],
       masteries: masteries({}),
       attempts: [],
       nowIso: T0,
     });
 
     expect(itens).toHaveLength(0);
-    expect(naoResolvidos).toHaveLength(2);
-    for (const n of naoResolvidos) expect(n.motivo.length).toBeGreaterThan(10);
+    expect(naoResolvidos).toHaveLength(1);
+    expect(naoResolvidos[0]!.motivo.length).toBeGreaterThan(10);
+  });
+
+  it("espaço PRACTICAL vira convite à minipartida — bots existem desde A5", () => {
+    const { itens, naoResolvidos } = resolverSessao({
+      index,
+      slots: [{ kind: "PRACTICAL", rationale: "Aplicação em partida — é onde o conceito vira decisão." }],
+      masteries: masteries({}),
+      attempts: [],
+      nowIso: T0,
+    });
+
+    expect(naoResolvidos).toEqual([]);
+    expect(itens).toHaveLength(1);
+    expect(itens[0]).toMatchObject({ tipo: "minipartida", kind: "PRACTICAL" });
   });
 
   it("carrega a razão do mixer até o item, para ser exibida ao aluno", () => {
@@ -293,7 +321,6 @@ describe("critério de aceite do bloco", () => {
     const revisoes = plan.slots.filter((s) => s.kind === "REVIEW").length;
     const esperado = Math.round(tamanho * DEFAULT_ADAPTIVE.mix.spacedReview);
     expect(revisoes).toBe(esperado);
-    expect(plan.slots.some((s) => s.kind === "PRACTICAL")).toBe(false);
   });
 });
 
@@ -355,6 +382,6 @@ describe("a sessão entrega o tamanho que promete", () => {
       attempts: [],
       nowIso: T0,
     });
-    expect(itens[0]!.skillId).toBe("r1.cor-casa");
+    expect(soExercicio(itens[0]).skillId).toBe("r1.cor-casa");
   });
 });

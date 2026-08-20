@@ -152,6 +152,9 @@ export default function MapaPage() {
                 Só revisão ({view.due.length})
               </Link>
             )}
+            <Link href="/jogar" className="btn-ghost">
+              Jogar contra bot
+            </Link>
           </div>
         </section>
 

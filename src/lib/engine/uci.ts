@@ -11,6 +11,7 @@
 
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 /** Avaliação de uma linha, sempre do ponto de vista de quem está para jogar. */
@@ -38,12 +39,41 @@ export interface Engine {
   readonly name: string;
 }
 
+const NOME_DO_BINARIO = "stockfish-18-lite-single.js";
+
+/**
+ * Resolve o caminho do binário do Stockfish.
+ *
+ * `import.meta.url` funciona em Node puro (scripts, testes via tsx/vitest),
+ * mas dentro do bundle de Server Action do Next.js ele deixa de ser um
+ * caminho de arquivo real — vira algo como
+ * `.../(action-browser)/node_modules/...`, que não existe em disco. Um spawn
+ * com esse caminho falha, e sem fallback a chamada trava até o timeout de
+ * handshake em vez de errar com a causa. `process.cwd()` continua correto
+ * nos dois ambientes (é a raiz do projeto), então serve de rede de segurança.
+ */
 function resolveBinary(): string {
-  const require = createRequire(import.meta.url);
-  const pkg = require.resolve("stockfish/package.json");
-  // "lite-single" não exige SharedArrayBuffer nem threads: é o que roda igual em
-  // CI, em container e no navegador sem cabeçalhos de isolamento cruzado.
-  return path.join(path.dirname(pkg), "bin", "stockfish-18-lite-single.js");
+  const candidatos: string[] = [];
+
+  try {
+    const require = createRequire(import.meta.url);
+    const pkg = require.resolve("stockfish/package.json");
+    // "lite-single" não exige SharedArrayBuffer nem threads: é o que roda
+    // igual em CI, em container e no navegador sem cabeçalhos de isolamento.
+    candidatos.push(path.join(path.dirname(pkg), "bin", NOME_DO_BINARIO));
+  } catch {
+    // import.meta.url não resolveu para nada usável — segue só com o fallback.
+  }
+
+  candidatos.push(path.join(process.cwd(), "node_modules", "stockfish", "bin", NOME_DO_BINARIO));
+
+  const encontrado = candidatos.find(existsSync);
+  if (!encontrado) {
+    throw new Error(
+      `binário do Stockfish não encontrado. Tentativas: ${candidatos.join(", ")}`,
+    );
+  }
+  return encontrado;
 }
 
 /** Converte a saída bruta de `info` numa avaliação. */
@@ -68,12 +98,31 @@ function parseInfo(line: string): LineEval | null {
 }
 
 export async function startEngine(): Promise<Engine> {
-  const child: ChildProcessWithoutNullStreams = spawn(process.execPath, [resolveBinary()], {
+  const binario = resolveBinary();
+  const child: ChildProcessWithoutNullStreams = spawn(process.execPath, [binario], {
     stdio: ["pipe", "pipe", "pipe"],
   });
 
   let pendente = "";
   const ouvintes = new Set<(line: string) => void>();
+
+  // Sem isto, um spawn que falha (binário não encontrado, permissão negada)
+  // não rejeita nada — as chamadas a `ask()` esperam em silêncio até o
+  // timeout de handshake, que erra a causa real por um "não respondeu".
+  let erroFatal: Error | null = null;
+  let stderrColetado = "";
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderrColetado += chunk.toString();
+  });
+  child.on("error", (err) => {
+    erroFatal = new Error(`stockfish não iniciou (binário: ${binario}): ${err.message}`);
+  });
+  child.on("exit", (code, signal) => {
+    if (erroFatal || code === 0) return;
+    erroFatal = new Error(
+      `stockfish encerrou inesperadamente (code=${code}, signal=${signal})${stderrColetado ? `: ${stderrColetado.trim()}` : ""}`,
+    );
+  });
 
   child.stdout.on("data", (chunk: Buffer) => {
     pendente += chunk.toString();
@@ -92,22 +141,39 @@ export async function startEngine(): Promise<Engine> {
   /** Envia e resolve quando `until` casar com alguma linha da resposta. */
   const ask = (cmd: string, until: RegExp, timeoutMs: number): Promise<string[]> =>
     new Promise((resolve, reject) => {
+      if (erroFatal) {
+        reject(erroFatal);
+        return;
+      }
+
       const coletadas: string[] = [];
-      const timer = setTimeout(() => {
+      const limpar = (): void => {
+        clearTimeout(timer);
         ouvintes.delete(ouvinte);
-        reject(new Error(`engine não respondeu a "${cmd}" em ${timeoutMs}ms`));
+        child.off("error", onFatal);
+        child.off("exit", onFatal);
+      };
+      const onFatal = (): void => {
+        if (!erroFatal) return;
+        limpar();
+        reject(erroFatal);
+      };
+      const timer = setTimeout(() => {
+        limpar();
+        reject(erroFatal ?? new Error(`engine não respondeu a "${cmd}" em ${timeoutMs}ms`));
       }, timeoutMs);
 
       const ouvinte = (line: string): void => {
         coletadas.push(line);
         if (until.test(line)) {
-          clearTimeout(timer);
-          ouvintes.delete(ouvinte);
+          limpar();
           resolve(coletadas);
         }
       };
 
       ouvintes.add(ouvinte);
+      child.on("error", onFatal);
+      child.on("exit", onFatal);
       send(cmd);
     });
 

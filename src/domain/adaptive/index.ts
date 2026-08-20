@@ -44,15 +44,12 @@ export interface AdaptiveConfig {
 }
 
 /**
- * Mistura enquanto não existem partidas.
+ * Mistura de quando não existiam partidas (A1-A4).
  *
- * A fatia de desafio prático é minipartida contra bot, que é outro bloco. Deixar
- * os 10% reservados produziria sessão com buraco; substituir por um exercício
- * qualquer fingindo que é aplicação em partida seria pior — a transferência para
- * partida é justamente o que o produto promete medir e não pode ser simulada.
- *
- * Então a fatia vai para o gargalo, e a tela diz que a aplicação em partida
- * ainda não existe. Volta a `DEFAULT_MIX` quando os bots entrarem.
+ * A fatia de desafio prático é minipartida contra bot — sem bots, deixar os
+ * 10% reservados produziria sessão com buraco, e substituir por um exercício
+ * qualquer fingindo que é aplicação em partida seria pior. Mantida aqui,
+ * exportada, para quem precisar reproduzir o comportamento anterior a A5.
  */
 export const MIX_SEM_PARTIDAS: SessionMix = {
   bottleneck: 0.6,
@@ -62,7 +59,8 @@ export const MIX_SEM_PARTIDAS: SessionMix = {
 };
 
 export const DEFAULT_ADAPTIVE: AdaptiveConfig = {
-  mix: MIX_SEM_PARTIDAS,
+  // Bots existem desde A5: a fatia de 10% volta a apontar para minipartida.
+  mix: DEFAULT_MIX,
   sessionSize: 10,
   recurrenceThreshold: 3,
   recurrenceWindowDays: 14,

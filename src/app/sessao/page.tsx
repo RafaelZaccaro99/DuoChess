@@ -80,7 +80,10 @@ export default function SessaoPage() {
   });
 
   const itens = useMemo(() => plano?.resolvida.itens ?? [], [plano]);
-  const exercicios = useMemo(() => itens.map((i) => i.exercise), [itens]);
+  // Minipartida é convite, não item respondível — não entra no laço do executor.
+  const itensExercicio = useMemo(() => itens.filter((i) => i.tipo === "exercicio"), [itens]);
+  const itensMinipartida = useMemo(() => itens.filter((i) => i.tipo === "minipartida"), [itens]);
+  const exercicios = useMemo(() => itensExercicio.map((i) => i.exercise), [itensExercicio]);
 
   const executor = useExecutorDeExercicios({ itens: exercicios });
 
@@ -155,17 +158,17 @@ export default function SessaoPage() {
           </Link>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">Sessão de hoje</p>
-            {!executor.concluido && itens.length > 0 && (
+            {!executor.concluido && itensExercicio.length > 0 && (
               <p className="text-xs text-ink-faint">
-                {executor.indice + 1} de {itens.length} ·{" "}
-                {ROTULO_DO_SLOT[itens[executor.indice]?.kind ?? "NEW"]}
+                {executor.indice + 1} de {itensExercicio.length} ·{" "}
+                {ROTULO_DO_SLOT[itensExercicio[executor.indice]?.kind ?? "NEW"]}
               </p>
             )}
           </div>
           <div className="w-24">
             <ProgressBar
-              value={executor.concluido ? itens.length : executor.indice}
-              max={Math.max(1, itens.length)}
+              value={executor.concluido ? itensExercicio.length : executor.indice}
+              max={Math.max(1, itensExercicio.length)}
               tone="brand"
               label="Progresso da sessão"
             />
@@ -193,6 +196,19 @@ export default function SessaoPage() {
           </div>
         )}
 
+        {/* Convite à minipartida — não bloqueia nem conta como tentativa. */}
+        {itensMinipartida.length > 0 && !executor.concluido && (
+          <div className="mb-5 card border-brand/30">
+            <p className="label text-brand">Aplicação em partida</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink-muted">
+              {itensMinipartida[0]!.rationale}
+            </p>
+            <Link href="/jogar" className="btn-primary mt-3">
+              Jogar uma minipartida
+            </Link>
+          </div>
+        )}
+
         {!executor.concluido && executor.exercicio && (
           <ExecutorDeExercicios
             exercicio={executor.exercicio}
@@ -203,7 +219,7 @@ export default function SessaoPage() {
             onResponder={executor.responder}
             onPedirDica={executor.pedirDica}
             onAvancar={avancar}
-            motivo={itens[executor.indice]?.rationale}
+            motivo={itensExercicio[executor.indice]?.rationale}
             rotuloDoFim="Ver resumo do dia"
           />
         )}
@@ -236,7 +252,7 @@ export default function SessaoPage() {
                 <p className="label">Como esta sessão foi montada</p>
                 <ul className="mt-2 space-y-1 text-sm text-ink-muted">
                   {(["BOTTLENECK", "REVIEW", "NEW"] as const).map((kind) => {
-                    const n = itens.filter((i) => i.kind === kind).length;
+                    const n = itensExercicio.filter((i) => i.kind === kind).length;
                     if (n === 0) return null;
                     return (
                       <li key={kind}>

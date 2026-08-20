@@ -21,6 +21,8 @@ import {
 } from "@/lib/auth";
 import { loadProgress, saveProgress } from "@/lib/progress-server";
 import type { ProgressState } from "@/domain/session";
+import * as jogos from "@/lib/games-server";
+import type { BotRating } from "@/domain/game/bot";
 
 export interface ActionResult {
   ok: boolean;
@@ -94,4 +96,99 @@ export async function salvarProgresso(state: ProgressState): Promise<ActionResul
 
   await saveProgress(user.id, state);
   return { ok: true };
+}
+
+// ────────────────────────────────────────────────── partidas, PGN, análise (A5)
+
+const SEM_SESSAO = { ok: false as const, error: "Sua sessão expirou. Entre novamente." };
+
+export async function listarPartidas(): Promise<jogos.GameSummary[]> {
+  const user = await currentUser();
+  if (!user) return [];
+  return jogos.listGames(user.id);
+}
+
+export async function dnaDoJogador(): Promise<jogos.PlayerDNA | null> {
+  const user = await currentUser();
+  if (!user) return null;
+  return jogos.playerDNA(user.id, new Date().toISOString());
+}
+
+export async function iniciarPartidaContraBot(
+  botRating: BotRating,
+  userColor: "w" | "b",
+): Promise<{ gameId: string; fen: string } | ActionResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.startBotGame(user.id, { botRating, userColor });
+}
+
+export async function carregarPartida(gameId: string): Promise<jogos.LoadGameResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.loadGame(user.id, gameId);
+}
+
+export async function jogarLance(
+  gameId: string,
+  move: { from: string; to: string; promotion?: string },
+): Promise<jogos.PlayUserMoveResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.playUserMove(user.id, gameId, move);
+}
+
+export async function encerrarPartida(gameId: string, result: string): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.finishGame(user.id, gameId, result);
+}
+
+export async function importarPgn(
+  rawPgn: string,
+  userColor: "w" | "b",
+): Promise<jogos.ImportPgnResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.importPgn(user.id, rawPgn, userColor);
+}
+
+export async function iniciarAnalise(gameId: string): Promise<jogos.StartAnalysisResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.startAnalysis(user.id, gameId);
+}
+
+export async function registrarAnaliseHumana(
+  analysisId: string,
+  momentId: string,
+  data: jogos.SubmitHumanAnalysisInput,
+): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.submitHumanAnalysis(user.id, analysisId, momentId, data);
+}
+
+export async function pularAnaliseHumana(analysisId: string, momentId: string): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.skipHumanAnalysis(user.id, analysisId, momentId);
+}
+
+export async function revelarEngine(
+  analysisId: string,
+  momentId: string,
+): Promise<jogos.RevealEngineResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.revealEngine(user.id, analysisId, momentId);
+}
+
+export async function finalizarAnalise(
+  analysisId: string,
+  extra: jogos.FinalizeAnalysisInput,
+): Promise<jogos.FinalizeAnalysisResult> {
+  const user = await currentUser();
+  if (!user) return SEM_SESSAO;
+  return jogos.finalizeAnalysis(user.id, analysisId, extra);
 }

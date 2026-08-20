@@ -440,6 +440,8 @@ model Game {
   mode       String
   userColor  String
   opponent   String
+  /// Preenchido quando opponent é um bot — rating do preset (400/800/1200/1600/2000).
+  botRating  Int?
   timeControl String?
   result     String?  // 1-0 0-1 1/2-1/2
   finalFen   String?
@@ -509,6 +511,10 @@ model CriticalMoment {
   humanEval       String?
   humanTimeSec    Int?
   humanEmotion    String?
+  /// Usuário pulou a etapa humana neste momento — distingue de "ainda não visitado"
+  /// (humanEval null). Sem isso o servidor não consegue aplicar o ADR-007: pular
+  /// reduz a confiança, mas a engine só pode ser revelada depois de um dos dois.
+  humanSkipped    Boolean  @default(false)
   skillId     String?
   skill       Skill?   @relation(fields: [skillId], references: [id], onDelete: SetNull)
 }
