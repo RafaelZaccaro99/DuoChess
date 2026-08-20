@@ -151,4 +151,37 @@ suite("persistência no servidor", () => {
     });
     expect(naTentativa?.attemptId, "erro gravado solto, sem tentativa").toBeTruthy();
   });
+
+  it("saveDiagnostic grava o payload real, e loadProgress devolve o entryPoint persistido (A6)", async () => {
+    const { loadProgress, saveDiagnostic } = await import("@/lib/progress-server");
+
+    const respostas = {
+      experience: "CASUAL",
+      tournaments: "NUNCA",
+      onlineRating: "800_1200",
+      goal: "SUBIR_RATING",
+      weeklyMinutes: 105,
+      rankings: true,
+    };
+
+    await saveDiagnostic(userId, "QUICK", respostas, {
+      estimated: { rules: 42, tactics: 30 },
+      ratingBand: "800–1200",
+      reliable: true,
+    });
+
+    const registro = await prisma.diagnosticResult.findFirst({
+      where: { userId, kind: "QUICK" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(registro).toBeDefined();
+    expect(registro?.ratingBand).toBe("800–1200");
+    expect(registro?.reliable).toBe(true);
+    expect(registro?.estimated).toEqual({ rules: 42, tactics: 30 });
+
+    // Regressão: sem saveDiagnostic, entryPoint se perdia a cada recarregamento
+    // porque loadProgress só o lê de volta via DiagnosticResult.kind.
+    const carregado = await loadProgress(userId);
+    expect(carregado.entryPoint).toBe("QUICK");
+  });
 });

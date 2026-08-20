@@ -19,8 +19,8 @@ import {
   verifyPassword,
   type SessionUser,
 } from "@/lib/auth";
-import { loadProgress, saveProgress } from "@/lib/progress-server";
-import type { ProgressState } from "@/domain/session";
+import { loadProgress, saveDiagnostic, saveProgress, type DiagnosticResultPayload } from "@/lib/progress-server";
+import type { EntryPoint, OnboardingAnswers, ProgressState } from "@/domain/session";
 import * as jogos from "@/lib/games-server";
 import type { BotRating } from "@/domain/game/bot";
 
@@ -95,6 +95,24 @@ export async function salvarProgresso(state: ProgressState): Promise<ActionResul
   if (!user) return { ok: false, error: "Sua sessão expirou. Entre novamente para sincronizar." };
 
   await saveProgress(user.id, state);
+  return { ok: true };
+}
+
+/**
+ * Registra o resultado do diagnóstico como um ponto no tempo (auditoria).
+ *
+ * Anônimo é no-op de propósito: `ProgressState.onboarding`/`.entryPoint` já
+ * viajam pelo repositório local como o resto do progresso — só falta o
+ * registro de auditoria no banco, que exige conta.
+ */
+export async function registrarDiagnostico(
+  entryPoint: EntryPoint,
+  answers: OnboardingAnswers,
+  result: DiagnosticResultPayload,
+): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: true };
+  await saveDiagnostic(user.id, entryPoint, answers, result);
   return { ok: true };
 }
 

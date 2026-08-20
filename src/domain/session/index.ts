@@ -278,43 +278,36 @@ export function reviewCardList(state: ProgressState): ReviewCard[] {
 }
 
 /**
- * Estado inicial derivado do onboarding.
+ * Registra as respostas do onboarding e a porta de entrada escolhida.
  *
- * Um usuário que declara experiência não recebe domínio de presente: ele recebe
- * um SEED de baixa confiança, que decai rápido e é substituído pela primeira
- * avaliação real. Declarar não é demonstrar.
+ * Não seeda domínio nenhum — declarar experiência em múltipla escolha não é
+ * demonstrar competência (ver `src/domain/diagnostic`, bloco A6). QUICK e
+ * FULL colocam o usuário de verdade, respondendo exercícios reais; FROM_ZERO
+ * e PGN_IMPORT simplesmente não têm seed algum a fazer.
  */
-export function seedFromOnboarding(
+export function recordOnboardingAnswers(
   state: ProgressState,
   answers: OnboardingAnswers,
   entryPoint: EntryPoint,
-  seedSkillIds: readonly string[],
   at: string,
 ): ProgressState {
-  const seedValue =
-    entryPoint === "FROM_ZERO"
-      ? 0
-      : answers.experience === "TORNEIO"
-        ? 45
-        : answers.experience === "CLUBE"
-          ? 35
-          : answers.experience === "CASUAL"
-            ? 20
-            : 0;
+  return { ...state, onboarding: answers, entryPoint, updatedAt: at };
+}
 
-  const masteries = { ...state.masteries };
-  if (seedValue > 0) {
-    for (const skillId of seedSkillIds) {
-      masteries[skillId] = {
-        ...emptyMastery(skillId),
-        value: seedValue,
-        state: "INTRODUCED",
-        confidence: 0.2,
-        decayRatePerDay: 3, // seed declarado decai rápido: some em ~1 semana
-        lastAssessedAt: at,
-      };
-    }
-  }
+/** Mescla o domínio colocado por um diagnóstico real (QUICK/FULL) no progresso. */
+export function applyDiagnosticResult(
+  state: ProgressState,
+  masterySeed: Readonly<Record<string, SkillMastery>>,
+  at: string,
+): ProgressState {
+  return { ...state, masteries: { ...state.masteries, ...masterySeed }, updatedAt: at };
+}
 
-  return { ...state, onboarding: answers, entryPoint, masteries, updatedAt: at };
+/** Declarou experiência competitiva o bastante para múltipla escolha não bastar. */
+export function declaresAdvancedExperience(answers: OnboardingAnswers): boolean {
+  return (
+    answers.onlineRating === "ACIMA_1600" ||
+    answers.tournaments === "FIDE" ||
+    answers.experience === "TORNEIO"
+  );
 }

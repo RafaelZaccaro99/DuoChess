@@ -107,6 +107,22 @@ export function computeChessScore(
   };
 }
 
+/**
+ * Quantas habilidades existem por competência no currículo — não quantas
+ * foram avaliadas. `coverage[c] === 0` sozinho não diz se a competência está
+ * vazia de conteúdo ou só ainda não foi testada; esta função é o que permite
+ * a tela de resultado distinguir as duas coisas em vez de tratá-las como a
+ * mesma mensagem.
+ */
+export function competencySkillCounts(
+  skillIndex: readonly SkillIndexEntry[],
+): Record<Competency, number> {
+  const counts = {} as Record<Competency, number>;
+  for (const c of COMPETENCIES) counts[c] = 0;
+  for (const entry of skillIndex) counts[entry.competency] += 1;
+  return counts;
+}
+
 function findStrengthAndBottleneck(
   components: Record<Competency, number>,
   coverage: Record<Competency, number>,

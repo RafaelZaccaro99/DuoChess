@@ -9,12 +9,16 @@
  * não confiável em vez de virar trilha.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProgress } from "@/components/ProgressProvider";
-import { seedFromOnboarding, type EntryPoint, type OnboardingAnswers } from "@/domain/session";
-import { COURSE } from "@/content";
-import { buildIndex } from "@/domain/curriculum";
+import {
+  declaresAdvancedExperience,
+  recordOnboardingAnswers,
+  type EntryPoint,
+  type OnboardingAnswers,
+} from "@/domain/session";
+import { registrarDiagnostico } from "@/app/actions";
 import { cn } from "@/lib/cn";
 import { ProgressBar } from "@/components/ui/Meters";
 
@@ -113,7 +117,7 @@ const ENTRY_POINTS: Array<{
     value: "FULL",
     label: "Diagnóstico completo",
     time: "~25 min",
-    description: "Sete competências avaliadas: regras, tática, cálculo, estratégia, finais, abertura e relógio.",
+    description: "Regras, tática e análise avaliadas agora — as demais competências entram conforme o conteúdo for publicado.",
   },
   {
     value: "PGN_IMPORT",
@@ -129,22 +133,17 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
-  const seedSkillIds = useMemo(() => {
-    const index = buildIndex(COURSE);
-    // Só as habilidades de regras da primeira liga recebem seed: é o único
-    // território onde "eu já sei jogar" é uma informação minimamente utilizável.
-    return [...index.skills.values()]
-      .filter((s) => s.leagueId === "recruta" && s.competency === "rules")
-      .map((s) => s.id);
-  }, []);
-
   const isEntryStep = step === QUESTIONS.length;
   const question = QUESTIONS[step];
 
-  const declaresAdvanced =
-    answers.onlineRating === "ACIMA_1600" ||
-    answers.tournaments === "FIDE" ||
-    answers.experience === "TORNEIO";
+  const declaresAdvanced = declaresAdvancedExperience({
+    experience: answers.experience ?? "NUNCA_JOGUEI",
+    tournaments: answers.tournaments ?? "NUNCA",
+    onlineRating: answers.onlineRating ?? "NAO_JOGO",
+    goal: answers.goal ?? "APRENDER_REGRAS",
+    weeklyMinutes: Number(answers.weeklyMinutes ?? 105),
+    rankings: answers.rankings !== "false",
+  });
 
   function choose(value: string) {
     if (!question) return;
@@ -161,10 +160,19 @@ export default function OnboardingPage() {
       weeklyMinutes: Number(answers.weeklyMinutes ?? 105),
       rankings: answers.rankings !== "false",
     };
+    const now = new Date().toISOString();
+    update((previous) => recordOnboardingAnswers(previous, parsed, entryPoint, now));
 
-    update((previous) =>
-      seedFromOnboarding(previous, parsed, entryPoint, seedSkillIds, new Date().toISOString()),
-    );
+    if (entryPoint === "QUICK" || entryPoint === "FULL") {
+      router.push(`/onboarding/diagnostico?modo=${entryPoint.toLowerCase()}`);
+      return;
+    }
+    if (entryPoint === "PGN_IMPORT") {
+      void registrarDiagnostico("PGN_IMPORT", parsed, { estimated: {}, ratingBand: "0-800", reliable: false });
+      router.push("/onboarding/importar");
+      return;
+    }
+    void registrarDiagnostico("FROM_ZERO", parsed, { estimated: {}, ratingBand: "0-800", reliable: true });
     router.push("/mapa");
   }
 
@@ -253,12 +261,6 @@ export default function OnboardingPage() {
               </li>
             ))}
           </ul>
-
-          <p className="mt-6 text-xs leading-relaxed text-ink-faint">
-            O teste rápido, o diagnóstico completo e a importação de PGN estão no backlog das
-            sprints 3 e 6. Escolher qualquer um deles agora leva você ao caminho começando pela
-            Liga Recruta — dizemos isso em vez de simular um resultado de diagnóstico.
-          </p>
         </>
       )}
 

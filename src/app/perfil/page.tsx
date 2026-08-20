@@ -8,24 +8,34 @@
  */
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
+import { dnaDoJogador } from "@/app/actions";
 import { COURSE } from "@/content";
 import { buildIndex, skillIndexForScore } from "@/domain/curriculum";
-import { computeChessScore, scoreBand } from "@/domain/score/chess-score";
+import { competencySkillCounts, computeChessScore, scoreBand } from "@/domain/score/chess-score";
 import { countTransferredSkills } from "@/domain/score/north-star";
+import { assessReliability } from "@/domain/score/reliability";
 import { masteryList, reviewCardList, totalXP } from "@/domain/session";
 import { effectiveMastery } from "@/domain/mastery";
 import { ERROR_TAXONOMY, recurrenceByCause } from "@/domain/errors/taxonomy";
 import { COMPETENCIES, COMPETENCY_LABELS, MASTERY_STATE_LABELS } from "@/domain/types";
+import type { PlayerDNA } from "@/lib/games-server";
 
 const INDEX = buildIndex(COURSE);
 const SKILL_INDEX = skillIndexForScore(INDEX);
+const SKILL_COUNTS = competencySkillCounts(SKILL_INDEX);
 
 export default function PerfilPage() {
   const { state, ready, reset, storageLabel, user } = useProgress();
+  const [dna, setDna] = useState<PlayerDNA | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    dnaDoJogador().then(setDna);
+  }, [user]);
 
   const view = useMemo(() => {
     if (!state) return null;
@@ -44,6 +54,8 @@ export default function PerfilPage() {
       }),
     };
   }, [state]);
+
+  const reliability = view ? assessReliability(view.score.total, dna?.gamesAnalyzed ?? 0) : null;
 
   if (!ready || !state || !view) {
     return (
@@ -85,6 +97,16 @@ export default function PerfilPage() {
           </p>
         </section>
 
+        {reliability && !reliability.reliable && reliability.reason && (
+          <section className="mt-4 rounded-xl2 border border-warn/40 bg-warn/10 p-4">
+            <p className="text-sm font-semibold text-warn">Estimativa não confiável neste nível</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">{reliability.reason}</p>
+            <Link href="/jogar" className="btn-primary mt-3">
+              Importar partidas
+            </Link>
+          </section>
+        )}
+
         {/* ── Competências */}
         <section className="mt-6">
           <h2 className="text-sm font-bold uppercase tracking-wider text-ink-faint">
@@ -112,9 +134,11 @@ export default function PerfilPage() {
                     />
                   </div>
                   <p className="mt-1.5 text-xs text-ink-faint">
-                    {coverage === 0
-                      ? "Nenhuma habilidade desta competência foi avaliada ainda — por isso vale 0, e não uma média inventada."
-                      : `${coverage}% das habilidades desta competência já foram avaliadas.`}
+                    {coverage > 0
+                      ? `${coverage}% das habilidades desta competência já foram avaliadas.`
+                      : SKILL_COUNTS[competency] > 0
+                        ? "Nenhuma habilidade desta competência foi avaliada ainda — por isso vale 0, e não uma média inventada."
+                        : "Conteúdo ainda não publicado para esta competência."}
                   </p>
                 </li>
               );
@@ -160,9 +184,8 @@ export default function PerfilPage() {
           <p className="label">Transferência para partidas</p>
           <p className="mt-2 text-3xl font-bold tabular-nums">{view.transfer.count}</p>
           <p className="mt-1 text-sm leading-relaxed text-ink-muted">
-            Habilidades dominadas que já apareceram como decisão correta em partida. É a métrica
-            central do produto — e o motivo de ela estar em zero é que jogar contra bot e importar
-            PGN entram nas sprints 5 e 6.
+            Habilidades dominadas que já apareceram como decisão correta em partida — jogando
+            contra bot ou importando PGN, em <Link href="/jogar" className="text-brand underline underline-offset-2">/jogar</Link>. É a métrica central do produto.
           </p>
           {view.transfer.pendingTransfer.length > 0 && (
             <p className="mt-3 text-xs text-ink-faint">

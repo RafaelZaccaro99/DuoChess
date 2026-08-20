@@ -319,20 +319,27 @@ export async function saveProgress(userId: string, state: ProgressState): Promis
   });
 }
 
+export interface DiagnosticResultPayload {
+  /** Chess Score por competência (0..100), como `ChessScore.components`. */
+  estimated: Record<string, number>;
+  ratingBand: string;
+  reliable: boolean;
+}
+
 export async function saveDiagnostic(
   userId: string,
   entryPoint: EntryPoint,
   answers: OnboardingAnswers,
+  result: DiagnosticResultPayload,
 ): Promise<void> {
   await prisma.diagnosticResult.create({
     data: {
       userId,
       kind: entryPoint,
       answers: answers as unknown as Prisma.InputJsonValue,
-      estimated: {},
-      ratingBand: "0-800",
-      // Nível avançado declarado em múltipla escolha não é estimativa confiável.
-      reliable: entryPoint !== "FROM_ZERO" ? answers.experience !== "TORNEIO" : true,
+      estimated: result.estimated as unknown as Prisma.InputJsonValue,
+      ratingBand: result.ratingBand,
+      reliable: result.reliable,
     },
   });
 }
