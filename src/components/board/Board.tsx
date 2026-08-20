@@ -80,6 +80,13 @@ export function Board({
     () => (orientation === "white" ? squares : [...squares].reverse()),
     [squares, orientation],
   );
+  // `readBoard` já entrega fileira por fileira, em grupos de 8 — inverter o
+  // array inteiro (orientação preta) preserva os grupos, só invertidos por
+  // dentro também, que é a rotação correta do tabuleiro.
+  const linhas = useMemo(
+    () => Array.from({ length: 8 }, (_, r) => ordered.slice(r * 8, r * 8 + 8)),
+    [ordered],
+  );
 
   const [cursor, setCursor] = useState<string>(orientation === "white" ? "e4" : "e5");
   const [origin, setOrigin] = useState<string | null>(null);
@@ -222,21 +229,29 @@ export function Board({
         onKeyDown={onKeyDown}
         className="relative grid aspect-square w-full grid-cols-8 overflow-hidden rounded-xl2 border border-line-strong"
       >
-        {ordered.map((square) => (
-          <SquareButton
-            key={square.square}
-            square={square}
-            isCursor={cursor === square.square}
-            isOrigin={origin === square.square}
-            isSelected={selected.has(square.square)}
-            isLegalTarget={legalTargets.has(square.square)}
-            highlightTone={highlights.get(square.square)}
-            interactive={interactive}
-            showCoordinates={showCoordinates}
-            orientation={orientation}
-            onActivate={() => activate(square.square)}
-            onFocusSquare={() => setCursor(square.square)}
-          />
+        {linhas.map((linha, r) => (
+          // display:contents — a linha existe pra ARIA (role="row", exigido
+          // pelo padrão de grid: gridcell precisa de um row como pai), sem
+          // participar do layout: as 8 casas continuam encaixando direto nas
+          // colunas do CSS Grid do pai (achado real do axe-core, A8).
+          <div role="row" key={r} className="contents">
+            {linha.map((square) => (
+              <SquareButton
+                key={square.square}
+                square={square}
+                isCursor={cursor === square.square}
+                isOrigin={origin === square.square}
+                isSelected={selected.has(square.square)}
+                isLegalTarget={legalTargets.has(square.square)}
+                highlightTone={highlights.get(square.square)}
+                interactive={interactive}
+                showCoordinates={showCoordinates}
+                orientation={orientation}
+                onActivate={() => activate(square.square)}
+                onFocusSquare={() => setCursor(square.square)}
+              />
+            ))}
+          </div>
         ))}
 
         {arrows.length > 0 && <ArrowLayer arrows={arrows} orientation={orientation} />}
@@ -306,7 +321,10 @@ function SquareButton({
       onClick={onActivate}
       onFocus={onFocusSquare}
       aria-label={`${squareLabel(square)}${state ? `. ${state}` : ""}`}
-      aria-pressed={interactive ? isSelected || isOrigin : undefined}
+      // `aria-pressed` não é permitido em `role="gridcell"` (achado real do
+      // axe-core em e2e/acessibilidade.spec.ts, A8) — `aria-selected` é o
+      // atributo correto da especificação ARIA para esse papel.
+      aria-selected={interactive ? isSelected || isOrigin : undefined}
       className={cn(
         "relative flex items-center justify-center p-[6%] transition-colors",
         square.light ? "bg-board-light" : "bg-board-dark",
