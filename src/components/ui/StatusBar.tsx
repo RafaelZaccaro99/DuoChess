@@ -72,7 +72,7 @@ export function StatusBar() {
         <div className="border-t border-line bg-surface-raised">
           <div className="mx-auto max-w-3xl px-4 py-1.5 text-xs text-ink-muted">
             {due} {due === 1 ? "item venceu" : "itens venceram"} na revisão espaçada.{" "}
-            <Link href="/mapa" className="font-semibold text-brand underline underline-offset-2">
+            <Link href="/revisao" className="font-semibold text-brand underline underline-offset-2">
               Revisar
             </Link>
           </div>

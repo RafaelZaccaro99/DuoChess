@@ -9,8 +9,14 @@
  * sem a semeadura, o progresso apontaria para habilidades inexistentes.
  */
 
+import { existsSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import { COURSE } from "../src/content";
+
+// O CLI do Prisma carrega o .env sozinho; um script avulso não. Sem isto,
+// `npm run prisma:seed` falha mesmo com o .env no lugar — que é exatamente o
+// passo que o README manda dar depois de copiar o .env.example.
+if (!process.env.DATABASE_URL && existsSync(".env")) process.loadEnvFile(".env");
 
 const prisma = new PrismaClient();
 

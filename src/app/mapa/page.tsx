@@ -135,6 +135,26 @@ export default function MapaPage() {
           </div>
         )}
 
+        {/* A sessão de hoje é a ação principal: é ela que o motor adaptativo
+            monta, e o resto do mapa existe para quem quer escolher à mão. */}
+        <section className="mb-6 rounded-xl2 border border-brand bg-brand-soft p-4">
+          <p className="label text-brand">Sessão de hoje</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
+            Montada pelo motor adaptativo: gargalo, revisão do que está prestes a ser esquecido e
+            conteúdo novo, nessa proporção.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/sessao" className="btn-primary">
+              Começar
+            </Link>
+            {view.due.length > 0 && (
+              <Link href="/revisao" className="btn-ghost">
+                Só revisão ({view.due.length})
+              </Link>
+            )}
+          </div>
+        </section>
+
         <section>
           <div className="flex items-baseline justify-between gap-3">
             <h1 className="text-xl font-bold tracking-tight">Liga {recruta.title}</h1>
@@ -263,7 +283,7 @@ export default function MapaPage() {
                   Ir para a lição
                 </Link>
                 {view.treinar && (
-                  <Link href={`/praticar/${view.treinar.id}`} className="btn-primary">
+                  <Link href={`/praticar/${view.treinar.id}`} className="btn-ghost">
                     Treinar {view.treinar.title.toLowerCase()}
                   </Link>
                 )}

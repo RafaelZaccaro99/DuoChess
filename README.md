@@ -34,8 +34,12 @@ Rode `npm install && npm run dev` e abra `http://localhost:3000`.
   taxonomia de 13 causas de erro, XP anti-farming.
 - **Liga Recruta** completa: 6 unidades, 18 habilidades, 7 lições e **112 exercícios** —
   20 escritos à mão e 92 gerados —, todos aprovados nos dois gates.
-- **Prática dirigida por habilidade** (`/praticar/[skillId]`), alcançável pelo cartão de
-  gargalo do mapa.
+- **Sessão diária** (`/sessao`) montada pelo motor adaptativo: gargalo, revisão do que está
+  prestes a ser esquecido e conteúdo novo, com a razão de cada item visível ao aluno.
+- **Fila de revisão** (`/revisao`) com o teto diário do FSRS.
+- **Microlição**: erro conceitual devolve o conceito e um item mais simples da mesma
+  habilidade, em vez de só encurtar o intervalo.
+- **Prática dirigida por habilidade** (`/praticar/[skillId]`), para quem quer escolher à mão.
 
 ### Conteúdo escrito à mão e conteúdo gerado
 
@@ -75,7 +79,7 @@ npm run prisma:seed           # semeia o currículo (o conteúdo em git é a fon
 ```bash
 npm run dev               # desenvolvimento
 npm run build             # build de produção
-npm test                  # 152 testes; os de integração pulam sem DATABASE_URL
+npm test                  # 184 testes; os de integração pulam sem DATABASE_URL
 npm run typecheck         # TypeScript estrito
 npm run content:validate  # gate SOURCE_REVIEW + regras: FEN, legalidade, gabarito, fontes
 npm run content:engine    # gate ENGINE_REVIEW: unicidade da solução, erro que erra mesmo

@@ -10,26 +10,18 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
 import { Board } from "@/components/board/Board";
-import { AnswerInput } from "@/components/lesson/AnswerInput";
-import { Feedback } from "@/components/lesson/Feedback";
+import { ExecutorDeExercicios, negrito } from "@/components/exercicio/ExecutorDeExercicios";
+import { useExecutorDeExercicios } from "@/components/exercicio/useExecutorDeExercicios";
 import { Fontes } from "@/components/lesson/Fontes";
 import { COURSE } from "@/content";
 import { buildIndex, nextStep, skillIndexForScore } from "@/domain/curriculum";
 import { computeChessScore } from "@/domain/score/chess-score";
-import {
-  applyFocusRecovery,
-  masteryList,
-  masteryMap,
-  recordAttempt,
-  totalXP,
-  type AttemptEffects,
-} from "@/domain/session";
-import type { UserAnswer } from "@/domain/chess/evaluate";
+import { applyFocusRecovery, masteryList, masteryMap, totalXP } from "@/domain/session";
 import { COMPETENCY_LABELS } from "@/domain/types";
 
 const INDEX = buildIndex(COURSE);
@@ -42,8 +34,6 @@ const PHASE_LABEL = {
   MASTERY_TEST: "Prova de domínio",
   REVIEW: "Revisão",
 } as const;
-
-type Stage = "concept" | "exercise" | "feedback" | "summary";
 
 export default function LessonPage() {
   const params = useParams<{ lessonId: string }>();
@@ -63,43 +53,18 @@ export default function LessonPage() {
     ];
   }, [lesson]);
 
-  const [stage, setStage] = useState<Stage>("concept");
-  const [step, setStep] = useState(0);
-  const [hintsUsed, setHintsUsed] = useState(0);
-  const [startedAt, setStartedAt] = useState(() => Date.now());
-  const [effects, setEffects] = useState<AttemptEffects | null>(null);
-  const [sessionXP, setSessionXP] = useState(0);
+  // Fases 1 e 2 (apresentação e demonstração) são da lição; da fase 3 em diante
+  // é o mesmo laço de qualquer outra tela de exercício.
+  const [emExercicios, setEmExercicios] = useState(false);
 
-  const exercise = lesson?.exercises[step];
-  const isLast = lesson ? step === lesson.exercises.length - 1 : false;
+  const executor = useExecutorDeExercicios({ itens: lesson?.exercises ?? [] });
 
-  const submit = useCallback(
-    (answer: UserAnswer) => {
-      if (!exercise || !state) return;
-      const at = new Date().toISOString();
-      const elapsedMs = Date.now() - startedAt;
-
-      const result = recordAttempt(state, { exercise, answer, hintsUsed, elapsedMs, at });
-      update(() => result.state);
-      setEffects(result.effects);
-      setSessionXP((xp) => xp + result.effects.xpAwarded);
-      setStage("feedback");
-    },
-    [exercise, state, startedAt, hintsUsed, update],
-  );
-
-  const advance = useCallback(() => {
-    if (!lesson) return;
-    if (step + 1 >= lesson.exercises.length) {
-      setStage("summary");
-      return;
-    }
-    setStep((s) => s + 1);
-    setHintsUsed(0);
-    setStartedAt(Date.now());
-    setEffects(null);
-    setStage("exercise");
-  }, [lesson, step]);
+  const xpDaSessao = useMemo(() => {
+    if (!state) return 0;
+    return state.xpEvents
+      .slice(-Math.max(0, executor.indice + (executor.efeitos ? 1 : 0)))
+      .reduce((soma, e) => soma + e.amount, 0);
+  }, [state, executor.indice, executor.efeitos]);
 
   const score = useMemo(() => {
     if (!state) return null;
@@ -147,15 +112,16 @@ export default function LessonPage() {
           </Link>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{lesson.title}</p>
-            {stage !== "concept" && stage !== "summary" && (
+            {emExercicios && !executor.concluido && (
               <p className="text-xs text-ink-faint">
-                {step + 1} de {lesson.exercises.length} · {exercise && PHASE_LABEL[exercise.phase]}
+                {executor.indice + 1} de {lesson.exercises.length} ·{" "}
+                {executor.exercicio && PHASE_LABEL[executor.exercicio.phase]}
               </p>
             )}
           </div>
           <div className="w-24">
             <ProgressBar
-              value={stage === "summary" ? lesson.exercises.length : step}
+              value={executor.concluido ? lesson.exercises.length : executor.indice}
               max={lesson.exercises.length}
               tone="brand"
               label="Progresso da lição"
@@ -164,7 +130,7 @@ export default function LessonPage() {
         </div>
 
         {/* ── Fases 1 e 2: apresentação e demonstração */}
-        {stage === "concept" && (
+        {!emExercicios && (
           <div className="space-y-5">
             <div className="card">
               <p className="label">Apresentação</p>
@@ -173,7 +139,7 @@ export default function LessonPage() {
                   <p
                     key={i}
                     className="text-sm leading-relaxed text-ink-muted"
-                    dangerouslySetInnerHTML={{ __html: renderInline(paragraph) }}
+                    dangerouslySetInnerHTML={{ __html: negrito(paragraph) }}
                   />
                 ))}
               </div>
@@ -194,80 +160,36 @@ export default function LessonPage() {
             <button
               type="button"
               className="btn-primary w-full"
-              onClick={() => {
-                setStage("exercise");
-                setStartedAt(Date.now());
-              }}
+              onClick={() => setEmExercicios(true)}
             >
               Praticar
             </button>
           </div>
         )}
 
-        {/* ── Fases 3, 4 e 5 */}
-        {stage === "exercise" && exercise && (
-          <div className="space-y-5">
-            <p
-              className="text-[15px] leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: renderInline(exercise.prompt) }}
-            />
-
-            <AnswerInput
-              exercise={exercise}
-              disabled={false}
-              onSubmit={submit}
-              marks={hintsUsed >= 3 ? exercise.marks : []}
-            />
-
-            <div className="rounded-xl2 border border-line p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="label">Dicas</p>
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-brand disabled:text-ink-faint"
-                  disabled={hintsUsed >= 3}
-                  onClick={() => setHintsUsed((h) => h + 1)}
-                >
-                  {hintsUsed >= 3 ? "Todas usadas" : `Ver dica ${hintsUsed + 1} de 3`}
-                </button>
-              </div>
-              {hintsUsed > 0 ? (
-                <ol className="mt-3 space-y-2">
-                  {exercise.hints.slice(0, hintsUsed).map((hint, i) => (
-                    <li key={i} className="text-sm leading-relaxed text-ink-muted">
-                      <span className="text-ink-faint">{i + 1}.</span> {hint}
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="mt-2 text-xs text-ink-faint">
-                  Cada dica reduz o crédito desta tentativa no seu domínio. O XP não muda — dica
-                  afeta competência, não esforço.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {stage === "feedback" && exercise && effects && (
-          <Feedback
-            exercise={exercise}
-            effects={effects}
+        {/* ── Fases 3, 4 e 5, no laço compartilhado */}
+        {emExercicios && !executor.concluido && executor.exercicio && (
+          <ExecutorDeExercicios
+            exercicio={executor.exercicio}
+            dicasUsadas={executor.dicasUsadas}
+            efeitos={executor.efeitos}
+            ehUltimo={executor.ehUltimo}
             skillTitles={SKILL_TITLES}
-            onContinue={advance}
-            isLast={isLast}
+            onResponder={executor.responder}
+            onPedirDica={executor.pedirDica}
+            onAvancar={executor.avancar}
           />
         )}
 
         {/* ── Resumo de sessão */}
-        {stage === "summary" && score && (
+        {executor.concluido && score && (
           <div className="space-y-5">
             <h1 className="text-2xl font-bold tracking-tight">Sessão concluída</h1>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="card border-xp/30">
                 <p className="label text-xp">Atividade</p>
-                <p className="mt-2 text-2xl font-bold tabular-nums text-xp">+{sessionXP} XP</p>
+                <p className="mt-2 text-2xl font-bold tabular-nums text-xp">+{xpDaSessao} XP</p>
                 <p className="mt-1 text-xs text-ink-muted">
                   Total: {totalXP(state)} · sequência de {state.streak.current}{" "}
                   {state.streak.current === 1 ? "dia" : "dias"}
@@ -350,10 +272,4 @@ export default function LessonPage() {
 }
 
 /** Suporte mínimo a **negrito** no texto do conteúdo. Nada mais é interpretado. */
-function renderInline(text: string): string {
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return escaped.replace(/\*\*([^*]+)\*\*/g, "<strong class='text-ink'>$1</strong>");
-}
+

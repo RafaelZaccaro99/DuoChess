@@ -43,8 +43,26 @@ export interface AdaptiveConfig {
   recurrenceWindowDays: number;
 }
 
+/**
+ * Mistura enquanto não existem partidas.
+ *
+ * A fatia de desafio prático é minipartida contra bot, que é outro bloco. Deixar
+ * os 10% reservados produziria sessão com buraco; substituir por um exercício
+ * qualquer fingindo que é aplicação em partida seria pior — a transferência para
+ * partida é justamente o que o produto promete medir e não pode ser simulada.
+ *
+ * Então a fatia vai para o gargalo, e a tela diz que a aplicação em partida
+ * ainda não existe. Volta a `DEFAULT_MIX` quando os bots entrarem.
+ */
+export const MIX_SEM_PARTIDAS: SessionMix = {
+  bottleneck: 0.6,
+  spacedReview: 0.2,
+  newContent: 0.2,
+  practicalChallenge: 0,
+};
+
 export const DEFAULT_ADAPTIVE: AdaptiveConfig = {
-  mix: DEFAULT_MIX,
+  mix: MIX_SEM_PARTIDAS,
   sessionSize: 10,
   recurrenceThreshold: 3,
   recurrenceWindowDays: 14,
@@ -107,15 +125,30 @@ function weakSkillsFor(
   const competency = cause ? ERROR_TAXONOMY[cause].competency : null;
   const statuses = skillStatus(input.index, input.masteries, input.nowIso);
 
-  return [...input.index.skills.values()]
-    .filter((s) => (competency ? s.competency === competency : true))
+  const disponiveis = [...input.index.skills.values()]
     .filter((s) => statuses.get(s.id)?.availability !== "LOCKED")
     .map((s) => {
       const m = input.masteries.get(s.id);
-      return { skillId: s.id, mastery: m ? effectiveMastery(m, input.nowIso) : 0 };
+      return {
+        skillId: s.id,
+        competency: s.competency,
+        mastery: m ? effectiveMastery(m, input.nowIso) : 0,
+      };
     })
     .filter((s) => s.mastery < 80)
     .sort((a, b) => a.mastery - b.mastery);
+
+  if (!competency) return disponiveis;
+
+  // A competência do gargalo é PRIORIDADE, não filtro rígido.
+  //
+  // Filtrar duro deixava a sessão curta quando aquela competência tinha poucas
+  // habilidades fracas disponíveis: o aluno pedia dez itens e recebia cinco.
+  // O gargalo vem primeiro e o resto completa, para a sessão ter o tamanho que
+  // prometeu.
+  const doGargalo = disponiveis.filter((s) => s.competency === competency);
+  const restante = disponiveis.filter((s) => s.competency !== competency);
+  return [...doGargalo, ...restante];
 }
 
 export function planSession(input: PlanInput): SessionPlan {
@@ -152,8 +185,12 @@ export function planSession(input: PlanInput): SessionPlan {
   const slots: SessionSlot[] = [];
   const weak = weakSkillsFor(input, bottleneck?.cause ?? null);
 
-  for (let i = 0; i < counts.BOTTLENECK && i < weak.length; i++) {
-    const skill = weak[i]!;
+  // Percorre as habilidades fracas em ciclo quando há mais espaços do que
+  // habilidades. Parar na última deixava a sessão curta sem motivo: cada
+  // habilidade tem itens de sobra, e servir dois da mesma é melhor que entregar
+  // sete itens quando dez foram prometidos.
+  for (let i = 0; i < counts.BOTTLENECK && weak.length > 0; i++) {
+    const skill = weak[i % weak.length]!;
     slots.push({
       kind: "BOTTLENECK",
       skillId: skill.skillId,
@@ -191,6 +228,22 @@ export function planSession(input: PlanInput): SessionPlan {
     slots.push({
       kind: "PRACTICAL",
       rationale: "Aplicação em partida — é onde o conceito vira decisão.",
+    });
+  }
+
+  // Completa o que sobrou com trabalho de gargalo.
+  //
+  // As fatias são proporções desejadas, não cotas rígidas: quando nada venceu na
+  // revisão, ou quando o avanço está bloqueado, os espaços daquelas fatias
+  // ficariam vazios e o aluno receberia menos do que pediu. "Não há revisão
+  // vencida" não é motivo para entregar meia sessão.
+  for (let i = 0; slots.length < sessionSize && weak.length > 0; i++) {
+    const skill = weak[i % weak.length]!;
+    slots.push({
+      kind: "BOTTLENECK",
+      skillId: skill.skillId,
+      lessonId: input.index.lessonsBySkill.get(skill.skillId)?.[0],
+      rationale: `Reforço da habilidade mais fraca disponível (domínio ${skill.mastery}/100)`,
     });
   }
 

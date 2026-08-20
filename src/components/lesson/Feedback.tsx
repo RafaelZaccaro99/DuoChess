@@ -31,12 +31,15 @@ export function Feedback({
   skillTitles,
   onContinue,
   isLast,
+  lastLabel,
 }: {
   exercise: ExerciseDef;
   effects: AttemptEffects;
   skillTitles: Record<string, string>;
   onContinue(): void;
   isLast: boolean;
+  /** Rótulo do botão no último item; cada tela termina numa coisa diferente. */
+  lastLabel?: string;
 }) {
   const { evaluation } = effects;
 
@@ -131,8 +134,8 @@ export function Feedback({
           <p className="label text-focus">Microlição acionada</p>
           <p className="mt-2 text-sm leading-relaxed text-ink-muted">
             Este erro foi <strong className="text-ink">conceitual</strong>, não de distração. Em vez
-            de só encurtar o intervalo de revisão, reiniciamos esta habilidade: você vai reencontrar
-            o conceito por outra abordagem antes de avançar.
+            de só encurtar o intervalo de revisão, esta habilidade volta ao início e você vai
+            reencontrá-la logo.
           </p>
         </div>
       )}
@@ -146,7 +149,7 @@ export function Feedback({
       )}
 
       <button type="button" className="btn-primary w-full" onClick={onContinue}>
-        {isLast ? "Ver resumo da sessão" : "Continuar"}
+        {isLast ? (lastLabel ?? "Ver resumo da sessão") : "Continuar"}
       </button>
     </div>
   );
