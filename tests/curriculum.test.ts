@@ -28,7 +28,7 @@ describe("índice do currículo", () => {
   });
 
   it("indexa habilidades, lições e a relação entre elas", () => {
-    expect(index.skills.size).toBe(18);
+    expect(index.skills.size).toBe(20);
     expect(index.lessonsBySkill.get("r4.tres-respostas")).toContain("r4.l1");
   });
 });

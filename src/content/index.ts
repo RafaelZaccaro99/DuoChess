@@ -9,18 +9,9 @@
 
 import { courseSchema, type CourseDef, type CourseInput, type LeagueInput } from "./schema";
 import { RECRUTA } from "./recruta";
+import { ESTRATEGISTA } from "./estrategista";
 
 const PLANNED: LeagueInput[] = [
-  {
-    id: "estrategista",
-    title: "Estrategista",
-    order: 2,
-    ratingMin: 800,
-    ratingMax: 1200,
-    focus:
-      "Desenvolvimento, centro, segurança do rei, garfo, cravada, espeto, ataque descoberto, remoção do defensor, mates, oposição e finais básicos.",
-    units: [],
-  },
   {
     id: "tatico",
     title: "Tático",
@@ -87,7 +78,7 @@ const raw: CourseInput = {
   slug: "formacao-completa",
   title: "Formação completa em xadrez",
   locale: "pt-BR",
-  leagues: [RECRUTA, ...PLANNED],
+  leagues: [RECRUTA, ESTRATEGISTA, ...PLANNED],
 };
 
 /** Falha no import se o conteúdo violar o schema. Erro cedo é erro barato. */

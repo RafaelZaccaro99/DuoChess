@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import { useProgress } from "@/components/ProgressProvider";
 import { StatusBar } from "@/components/ui/StatusBar";
 import { ProgressBar } from "@/components/ui/Meters";
-import { COURSE } from "@/content";
+import { COURSE, hasContent } from "@/content";
 import { buildIndex, nextStep, skillIndexForScore, skillStatus, unitProgress } from "@/domain/curriculum";
 import { masteryMap, masteryList } from "@/domain/session";
 import { computeChessScore } from "@/domain/score/chess-score";
@@ -85,9 +85,8 @@ export default function MapaPage() {
     );
   }
 
-  const recruta = COURSE.leagues[0]!;
-  const recrutaUnits = view.units.filter((u) => u.leagueId === "recruta");
-  const concluidas = recrutaUnits.filter((u) => u.availability === "MASTERED").length;
+  const ligasComConteudo = COURSE.leagues.filter((l) => hasContent(l.id));
+  const ligasVazias = COURSE.leagues.filter((l) => !hasContent(l.id));
 
   return (
     <>
@@ -158,101 +157,110 @@ export default function MapaPage() {
           </div>
         </section>
 
-        <section>
-          <div className="flex items-baseline justify-between gap-3">
-            <h1 className="text-xl font-bold tracking-tight">Liga {recruta.title}</h1>
-            <span className="text-xs text-ink-faint">
-              {recruta.ratingMin}–{recruta.ratingMax}
-            </span>
-          </div>
-          <div className="mt-3">
-            <ProgressBar
-              value={concluidas}
-              max={recrutaUnits.length}
-              tone="mastery"
-              label="Unidades concluídas na Liga Recruta"
-            />
-            <p className="mt-2 text-xs text-ink-faint">
-              {concluidas} de {recrutaUnits.length} unidades com domínio consolidado
-            </p>
-          </div>
-        </section>
+        {ligasComConteudo.map((liga) => {
+          const ligaUnits = view.units.filter((u) => u.leagueId === liga.id);
+          const concluidas = ligaUnits.filter((u) => u.availability === "MASTERED").length;
 
-        <ol className="mt-6 space-y-3">
-          {recrutaUnits.map((unit) => {
-            const definition = INDEX.units.get(unit.unitId)!;
-            const lessonId = definition.lessons[0]?.id;
-            const bloqueada = unit.availability === "LOCKED";
-            const dominada = unit.availability === "MASTERED";
-
-            return (
-              <li
-                key={unit.unitId}
-                className={cn(
-                  "card",
-                  // Bloqueada já se distingue pelo ícone "○" e por "Requer ...":
-                  // opacity aqui só dimeria o mesmo texto que precisa ficar
-                  // legível, e cortava o contraste abaixo de WCAG 2.2 AA.
-                  !bloqueada && !dominada && "border-brand/50",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "mt-0.5 shrink-0 text-lg leading-none",
-                      dominada ? "text-mastery" : bloqueada ? "text-ink-faint" : "text-brand",
-                    )}
-                  >
-                    {dominada ? "✓" : bloqueada ? "○" : "●"}
+          return (
+            <div key={liga.id}>
+              <section className={liga.order > 1 ? "mt-8" : undefined}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <h1 className="text-xl font-bold tracking-tight">Liga {liga.title}</h1>
+                  <span className="text-xs text-ink-faint">
+                    {liga.ratingMin}–{liga.ratingMax}
                   </span>
-
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-bold">
-                      {unit.unitId.toUpperCase()} · {unit.title}
-                    </h2>
-                    <p className="mt-1 text-xs leading-relaxed text-ink-muted">{definition.summary}</p>
-
-                    {bloqueada ? (
-                      <p className="mt-3 text-xs text-ink-faint">
-                        Requer{" "}
-                        {unit.missingPrerequisiteUnits
-                          .map((id) => INDEX.units.get(id)?.title ?? id)
-                          .join(", ")}
-                        .
-                      </p>
-                    ) : (
-                      <>
-                        <div className="mt-3 flex items-center gap-3">
-                          <div className="w-32">
-                            <ProgressBar
-                              value={unit.mastery}
-                              tone="mastery"
-                              label={`Domínio da unidade ${unit.title}`}
-                            />
-                          </div>
-                          <span className="text-xs tabular-nums text-ink-muted">
-                            domínio {unit.mastery}/100 · {unit.masteredCount}/{unit.skillCount}{" "}
-                            habilidades
-                          </span>
-                        </div>
-
-                        {lessonId && (
-                          <Link
-                            href={`/licao/${lessonId}`}
-                            className={dominada ? "btn-ghost mt-3" : "btn-primary mt-3"}
-                          >
-                            {dominada ? "Revisar" : unit.mastery > 0 ? "Continuar" : "Começar"}
-                          </Link>
-                        )}
-                      </>
-                    )}
-                  </div>
                 </div>
-              </li>
-            );
-          })}
-        </ol>
+                <div className="mt-3">
+                  <ProgressBar
+                    value={concluidas}
+                    max={ligaUnits.length}
+                    tone="mastery"
+                    label={`Unidades concluídas na Liga ${liga.title}`}
+                  />
+                  <p className="mt-2 text-xs text-ink-faint">
+                    {concluidas} de {ligaUnits.length} unidades com domínio consolidado
+                  </p>
+                </div>
+              </section>
+
+              <ol className="mt-6 space-y-3">
+                {ligaUnits.map((unit) => {
+                  const definition = INDEX.units.get(unit.unitId)!;
+                  const lessonId = definition.lessons[0]?.id;
+                  const bloqueada = unit.availability === "LOCKED";
+                  const dominada = unit.availability === "MASTERED";
+
+                  return (
+                    <li
+                      key={unit.unitId}
+                      className={cn(
+                        "card",
+                        // Bloqueada já se distingue pelo ícone "○" e por "Requer ...":
+                        // opacity aqui só dimeria o mesmo texto que precisa ficar
+                        // legível, e cortava o contraste abaixo de WCAG 2.2 AA.
+                        !bloqueada && !dominada && "border-brand/50",
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "mt-0.5 shrink-0 text-lg leading-none",
+                            dominada ? "text-mastery" : bloqueada ? "text-ink-faint" : "text-brand",
+                          )}
+                        >
+                          {dominada ? "✓" : bloqueada ? "○" : "●"}
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <h2 className="text-sm font-bold">
+                            {unit.unitId.toUpperCase()} · {unit.title}
+                          </h2>
+                          <p className="mt-1 text-xs leading-relaxed text-ink-muted">{definition.summary}</p>
+
+                          {bloqueada ? (
+                            <p className="mt-3 text-xs text-ink-faint">
+                              Requer{" "}
+                              {unit.missingPrerequisiteUnits
+                                .map((id) => INDEX.units.get(id)?.title ?? id)
+                                .join(", ")}
+                              .
+                            </p>
+                          ) : (
+                            <>
+                              <div className="mt-3 flex items-center gap-3">
+                                <div className="w-32">
+                                  <ProgressBar
+                                    value={unit.mastery}
+                                    tone="mastery"
+                                    label={`Domínio da unidade ${unit.title}`}
+                                  />
+                                </div>
+                                <span className="text-xs tabular-nums text-ink-muted">
+                                  domínio {unit.mastery}/100 · {unit.masteredCount}/{unit.skillCount}{" "}
+                                  habilidades
+                                </span>
+                              </div>
+
+                              {lessonId && (
+                                <Link
+                                  href={`/licao/${lessonId}`}
+                                  className={dominada ? "btn-ghost mt-3" : "btn-primary mt-3"}
+                                >
+                                  {dominada ? "Revisar" : unit.mastery > 0 ? "Continuar" : "Começar"}
+                                </Link>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          );
+        })}
 
         {/* ── Gargalo (diagnóstico) e próximo passo (ação possível hoje) */}
         <section className="mt-8 card">
@@ -314,13 +322,17 @@ export default function MapaPage() {
               Chess Score por competência, força, gargalo e DNA dos seus erros.
             </p>
           </Link>
-          <div className="card">
-            <p className="label">Ligas seguintes</p>
-            <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-              Estrategista a Candidato a título estão declaradas na arquitetura e ainda sem conteúdo
-              publicado. Elas aparecem vazias porque estão vazias.
-            </p>
-          </div>
+          {ligasVazias.length > 0 && (
+            <div className="card">
+              <p className="label">Ligas seguintes</p>
+              <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+                {ligasVazias.map((l) => l.title).join(", ")} {ligasVazias.length === 1 ? "está" : "estão"}{" "}
+                declarada{ligasVazias.length === 1 ? "" : "s"} na arquitetura e ainda sem conteúdo
+                publicado. {ligasVazias.length === 1 ? "Ela aparece vazia porque está" : "Elas aparecem vazias porque estão"}{" "}
+                vazia{ligasVazias.length === 1 ? "" : "s"}.
+              </p>
+            </div>
+          )}
         </section>
 
         <p className="mt-8 text-xs leading-relaxed text-ink-faint">
