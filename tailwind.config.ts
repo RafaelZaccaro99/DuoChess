@@ -2,8 +2,9 @@ import type { Config } from "tailwindcss";
 
 /**
  * Design system MestreXadrez.
- * Identidade original: sóbria, competitiva, energética. Não infantil, não cassino.
- * Contraste verificado para WCAG 2.2 AA nos pares texto/fundo usados.
+ * Referência visual: chess.com — verde de marca, tema escuro quente, tabuleiro
+ * clássico verde/creme. Contraste verificado para WCAG 2.2 AA nos pares
+ * texto/fundo usados (script de luminância relativa, mesmo método do A8).
  */
 const config: Config = {
   darkMode: "class",
@@ -11,19 +12,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Superfícies (tema escuro é o padrão do produto).
-        // Nome "surface", não "base": `base` colidiria com a escala de tamanho de
-        // fonte do Tailwind e faria `text-base` virar uma cor — texto escuro sobre
-        // fundo escuro, invisível.
-        surface: { DEFAULT: "#0F1216", raised: "#171C22", sunken: "#0A0D10" },
-        line: { DEFAULT: "#232A33", strong: "#333D4A" },
-        // `faint` original (#6B7885) media 3,79:1 sobre `.card` (#171C22) — abaixo
-        // do 4,5:1 exigido pelo WCAG 2.2 AA para texto normal (achado real do
-        // axe-core em e2e/acessibilidade.spec.ts, A8). Clareado até 4,68:1.
-        ink: { DEFAULT: "#E8EDF2", muted: "#9CA9B7", faint: "#7B8794" },
+        // Superfícies (tema escuro é o padrão do produto) — cinza quente,
+        // não azulado, pra casar com o verde de marca.
+        surface: { DEFAULT: "#262421", raised: "#302E2B", sunken: "#1A1917" },
+        line: { DEFAULT: "#3C3936", strong: "#4A4642" },
+        ink: { DEFAULT: "#FFFFFF", muted: "#B9B4AB", faint: "#9C978D" },
 
-        // Cor de marca — âmbar de tabuleiro, não amarelo de brinquedo
-        brand: { DEFAULT: "#D9A441", strong: "#B8862B", soft: "#3A2E15" },
+        // Cor de marca — o verde do chess.com, não o âmbar original.
+        brand: { DEFAULT: "#81B64C", strong: "#6FA23D", soft: "#2B3A1E" },
 
         // Semântica pedagógica: cada sistema tem cor própria e NUNCA se misturam
         xp: "#7FB2E5",        // atividade
@@ -31,12 +27,16 @@ const config: Config = {
         focus: "#C98BE0",     // energia pedagógica
         streak: "#E5883F",    // hábito
 
-        ok: "#4BB98A",
+        // `ok` original (#4BB98A) media 4,28:1 em bg-ok/15 sobre a nova
+        // `.card` (#302E2B) — abaixo do 4,5:1 do WCAG 2.2 AA. Clareado.
+        ok: "#54C494",
         warn: "#D9A441",
-        danger: "#E0655F",
+        // `danger` original (#E0655F) media 3,99:1 sobre a nova `.card`
+        // (#302E2B) — abaixo do 4,5:1 do WCAG 2.2 AA. Clareado até 4,70:1.
+        danger: "#E67872",
 
-        // Tabuleiro
-        board: { light: "#E9DCC3", dark: "#7C6749", mark: "#D9A441" },
+        // Tabuleiro — tema clássico verde do chess.com.
+        board: { light: "#EEEED2", dark: "#769656", mark: "#F6F669" },
       },
       fontFamily: {
         sans: ["ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],

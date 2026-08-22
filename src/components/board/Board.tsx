@@ -57,9 +57,9 @@ const TONE_RING: Record<Mark["tone"], string> = {
 };
 
 const TONE_STROKE: Record<Mark["tone"], string> = {
-  good: "#4BB98A",
-  bad: "#E0655F",
-  neutral: "#D9A441",
+  good: "#81B64C",
+  bad: "#E67872",
+  neutral: "#F0C954",
 };
 
 export function Board({
