@@ -52,6 +52,14 @@ interface ProgressContextValue {
   reset(): void;
   importLocal(): void;
   dismissImport(): void;
+  /**
+   * Recarrega a sessão a partir do servidor. `entrar`/`registrar` mudam o
+   * cookie de sessão, mas a navegação até `/mapa` é client-side
+   * (`router.push`) — sem isso, o provider continua com o `user` antigo (null)
+   * até um reload de página inteira, e a tela mostra "sem conta" mesmo com o
+   * cadastro tendo funcionado no servidor.
+   */
+  refreshSession(): Promise<void>;
 }
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -78,18 +86,16 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
 
   const repository: ProgressRepository = user ? remote : local;
 
-  useEffect(() => {
-    let cancelado = false;
-
-    void (async () => {
+  const carregarSessao = useCallback(
+    async (cancelado: () => boolean) => {
       const sessao = await usuarioAtual();
-      if (cancelado) return;
+      if (cancelado()) return;
       setUser(sessao);
 
       if (sessao) {
         const doServidor = await carregarProgresso();
         const doNavegador = await local.load();
-        if (cancelado) return;
+        if (cancelado()) return;
 
         setState(doServidor ?? freshProgress());
 
@@ -102,14 +108,21 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       } else {
         setState((await local.load()) ?? freshProgress());
       }
+    },
+    [local],
+  );
 
-      setReady(true);
-    })();
-
+  useEffect(() => {
+    let cancelado = false;
+    void carregarSessao(() => cancelado).then(() => {
+      if (!cancelado) setReady(true);
+    });
     return () => {
       cancelado = true;
     };
-  }, [local]);
+  }, [carregarSessao]);
+
+  const refreshSession = useCallback(() => carregarSessao(() => false), [carregarSessao]);
 
   const persist = useCallback(
     (next: ProgressState) => {
@@ -166,8 +179,21 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       reset,
       importLocal,
       dismissImport,
+      refreshSession,
     }),
-    [state, ready, user, repository.locationLabel, saveError, pendingImport, update, reset, importLocal, dismissImport],
+    [
+      state,
+      ready,
+      user,
+      repository.locationLabel,
+      saveError,
+      pendingImport,
+      update,
+      reset,
+      importLocal,
+      dismissImport,
+      refreshSession,
+    ],
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

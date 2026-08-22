@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { entrar, registrar, type ActionResult } from "@/app/actions";
+import { useProgress } from "@/components/ProgressProvider";
 import { cn } from "@/lib/cn";
 
 type Modo = "entrar" | "criar";
 
 export default function EntrarPage() {
   const router = useRouter();
+  const { refreshSession } = useProgress();
   const [modo, setModo] = useState<Modo>("entrar");
   const [resultado, setResultado] = useState<ActionResult | null>(null);
   const [pendente, iniciar] = useTransition();
@@ -23,7 +25,10 @@ export default function EntrarPage() {
     iniciar(async () => {
       const r = modo === "entrar" ? await entrar(formData) : await registrar(formData);
       setResultado(r);
-      if (r.ok) router.push("/mapa");
+      if (r.ok) {
+        await refreshSession();
+        router.push("/mapa");
+      }
     });
   }
 

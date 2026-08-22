@@ -227,7 +227,7 @@ export function Board({
         role="grid"
         aria-label="Tabuleiro de xadrez"
         onKeyDown={onKeyDown}
-        className="relative grid aspect-square w-full grid-cols-8 overflow-hidden rounded-xl2 border border-line-strong"
+        className="relative grid aspect-square w-full grid-cols-8 auto-rows-fr overflow-hidden rounded-xl2 border border-line-strong"
       >
         {linhas.map((linha, r) => (
           // display:contents — a linha existe pra ARIA (role="row", exigido
